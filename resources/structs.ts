@@ -19,17 +19,12 @@ import type PartyMemberConfirmation from '../src/structures/party/PartyMemberCon
 import type PartyMessage from '../src/structures/party/PartyMessage';
 import type ReceivedPartyInvitation from '../src/structures/party/ReceivedPartyInvitation';
 import type User from '../src/structures/user/User';
-import type {
-  EpicgamesOAuthData, STWMissionAlertData, STWMissionData, STWProfileLockerSlotData,
-  STWTheaterData, TournamentWindowTemplateData,
-} from './httpResponses';
+import type { EpicgamesOAuthData, TournamentWindowTemplateData } from './httpResponses';
 import type ReceivedFriendMessage from '../src/structures/friend/ReceivedFriendMessage';
-import type STWSurvivor from '../src/structures/stw/STWSurvivor';
 import type { AuthSessionStoreKey } from './enums';
 import type FortniteAuthSession from '../src/auth/FortniteAuthSession';
 import type LauncherAuthSession from '../src/auth/LauncherAuthSession';
 import type FortniteClientCredentialsAuthSession from '../src/auth/FortniteClientCredentialsAuthSession';
-import type EOSAuthSession from '../src/auth/EOSAuthSession';
 
 export type PartyMemberSchema = Partial<typeof defaultPartyMemberMeta>;
 export type PartySchema = Partial<typeof defaultPartyMeta> & {
@@ -43,7 +38,7 @@ export type PartySchema = Partial<typeof defaultPartyMeta> & {
 export type Schema = Record<string, string | undefined>;
 
 export type Language = 'de' | 'ru' | 'ko' | 'zh-hant' | 'pt-br' | 'en'
-  | 'it' | 'fr' | 'zh-cn' | 'es' | 'ar' | 'ja' | 'pl' | 'es-419' | 'tr';
+| 'it' | 'fr' | 'zh-cn' | 'es' | 'ar' | 'ja' | 'pl' | 'es-419' | 'tr';
 
 export type StringFunction = () => string;
 
@@ -88,8 +83,8 @@ export type AuthStringResolveable = string | PathLike | StringFunction | StringF
 
 export type Platform = 'WIN' | 'MAC' | 'PSN' | 'XBL' | 'SWT' | 'IOS' | 'AND' | 'PS5' | 'XSX';
 
-export type AuthClient = 'fortnitePCGameClient' | 'fortniteIOSGameClient' | 'fortniteAndroidGameClient'
-  | 'fortniteSwitchGameClient' | 'fortniteCNGameClient' | 'launcherAppClient2' | 'Diesel - Dauntless';
+export type AuthClient = 'fortnitePCGameClient' | 'fortniteIOSGameClient' | 'fortniteAndroidGameClient' |
+'fortniteSwitchGameClient' | 'fortniteCNGameClient' | 'launcherAppClient2' | 'Diesel - Dauntless';
 
 export interface RefreshTokenData {
   /**
@@ -259,11 +254,6 @@ export interface ClientConfig {
   xmppDebug?: (message: string) => void;
 
   /**
-   * Debug function used for incoming and outgoing stomp eos connect messages
-   */
-  stompEosConnectDebug?: (message: string) => void;
-
-  /**
    * Default friend presence of the bot (eg. "Playing Battle Royale")
    */
   defaultStatus?: string;
@@ -330,13 +320,6 @@ export interface ClientConfig {
    * Do not disable this unless you know what you're doing
    */
   connectToXMPP: boolean;
-
-  /**
-   * Whether the client should connect to eos connect stomp
-   * NOTE: If you disable this, receiving party or private messages will no longer work.
-   * Do not disable this unless you know what you're doing
-   */
-  connectToStompEOSConnect: boolean;
 
   /**
    * Whether the client should fetch all friends on startup.
@@ -1220,152 +1203,6 @@ export interface TournamentSessionMetadata {
   isLive: boolean;
 }
 
-export interface STWFORTStats {
-  fortitude: number;
-  resistance: number;
-  offense: number;
-  tech: number;
-}
-
-export type STWSurvivorType = 'special' | 'manager' | 'basic';
-
-export type STWItemRarity = 'c' | 'uc' | 'r' | 'vr' | 'sr' | 'ur';
-
-export type STWItemTier = 1 | 2 | 3 | 4 | 5 | 6;
-
-export type STWSurvivorGender = 'male' | 'female';
-
-export interface STWSurvivorSquads {
-  trainingteam: STWSurvivor[];
-  fireteamalpha: STWSurvivor[];
-  closeassaultsquad: STWSurvivor[];
-  thethinktank: STWSurvivor[];
-  emtsquad: STWSurvivor[];
-  corpsofengineering: STWSurvivor[];
-  scoutingparty: STWSurvivor[];
-  gadgeteers: STWSurvivor[];
-}
-
-export type STWSurvivorSquadType = 'medicine' | 'arms' | 'synthesis' | 'scavenging';
-
-export interface STWSurvivorSquadData {
-  id: string;
-  name: keyof STWSurvivorSquads;
-  type: STWSurvivorSquadType;
-  slotIdx: number;
-}
-
-export interface STWStatsNodeCostsData {
-  [key: string]: {
-    [key: string]: number;
-  };
-}
-
-export interface STWStatsSTWLoadoutData {
-  selectedHeroLoadout: string;
-  modeLoadouts: string[];
-  activeLoadoutIndex: number;
-}
-
-export interface STWStatsBRLoadoutData {
-  loadouts: string[];
-  lastAppliedLoadout: string;
-  useRandomLoadout: boolean;
-}
-
-export interface STWStatsMissionAlertRedemptionData {
-  missionAlertId: string;
-  redemptionDateUtc: Date;
-  evictClaimDataAfterUtc: Date;
-}
-
-export interface STWStatsQuestData {
-  dailyLoginInterval: Date;
-  dailyQuestRerolls?: number;
-  poolStats: {
-    stats: {
-      poolName: string;
-      nextRefresh: Date;
-      rerollsRemaining: number;
-      questHistory: string[];
-    }[];
-    dailyLoginInterval: Date;
-    lockouts: {
-      lockoutName: string;
-    }[];
-  };
-}
-
-export interface STWStatsGameplayStatData {
-  statName: string;
-  statValue: number;
-}
-
-export interface STWStatsClientSettingsData {
-  pinnedQuestInstances?: any[];
-}
-
-export interface STWStatsResearchLevelsData {
-  technology: number;
-  offense: number;
-  fortitude: number;
-  resistance: number;
-}
-
-export interface STWStatsEventCurrencyData {
-  templateId: string;
-  cf: number;
-}
-
-export interface STWStatsXPData {
-  total: number;
-  overflow: number;
-  lost: number;
-}
-
-export interface STWStatsDailyRewardsData {
-  nextDefaultReward: number;
-  totalDaysLoggedIn: number;
-  lastClaimDate: Date;
-  additionalSchedules?: {
-    [key: string]: {
-      rewardsClaimed: number;
-      claimedToday: boolean;
-    };
-  };
-}
-
-export interface STWLockerSlotsData {
-  Pickaxe: STWProfileLockerSlotData;
-  MusicPack?: STWProfileLockerSlotData;
-  Character?: STWProfileLockerSlotData;
-  ItemWrap: STWProfileLockerSlotData;
-  Backpack: STWProfileLockerSlotData;
-  Dance: STWProfileLockerSlotData;
-  LoadingScreen: STWProfileLockerSlotData;
-}
-
-export interface STWLockerBannerData {
-  icon: string;
-  color: string;
-}
-
-export type STWHeroType = 'commando' | 'constructor' | 'outlander' | 'ninja';
-
-export type STWSchematicType = 'ranged' | 'melee' | 'trap' | 'other';
-
-export type STWSchematicRangedSubType = 'assault' | 'launcher' | 'pistol' | 'shotgun' | 'smg' | 'sniper';
-
-export type STWSchematicMeleeSubType = 'blunt' | 'blunt_hammer' | 'edged_axe' | 'edged_scythe' | 'edged_sword' | 'piercing_spear';
-
-export type STWSchematicTrapSubType = 'ceiling' | 'floor' | 'wall';
-
-export type STWSchematicSubType = STWSchematicRangedSubType | STWSchematicMeleeSubType | STWSchematicTrapSubType;
-
-export type STWSchematicAlterationRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-
-export type STWSchematicEvoType = 'ore' | 'crystal';
-
 export interface StatsLevelData {
   [key: string]: {
     level: number;
@@ -1400,12 +1237,6 @@ export interface ImageData {
   url: string;
   width?: number;
   height?: number;
-}
-
-export interface STWWorldInfoData {
-  theaters: STWTheaterData[];
-  missions: STWMissionData[];
-  missionAlerts: STWMissionAlertData[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1473,7 +1304,6 @@ export interface EOSAuthData extends AuthData {
 export interface AuthSessionStore<K, V> extends Collection<K, V> {
   get(key: AuthSessionStoreKey.Fortnite): FortniteAuthSession | undefined;
   get(key: AuthSessionStoreKey.Launcher): LauncherAuthSession | undefined;
-  get(key: AuthSessionStoreKey.FortniteEOS): EOSAuthSession | undefined;
   get(key: AuthSessionStoreKey.FortniteClientCredentials): FortniteClientCredentialsAuthSession | undefined;
   get(key: K): V | undefined;
 }
