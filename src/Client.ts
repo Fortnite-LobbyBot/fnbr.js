@@ -33,6 +33,7 @@ import { AuthSessionStoreKey } from '../resources/enums';
 import EpicgamesAPIError from './exceptions/EpicgamesAPIError';
 import UserManager from './managers/UserManager';
 import FriendManager from './managers/FriendManager';
+import EOSConnect from './stomp/EOSConnect';
 import ChatManager from './managers/ChatManager';
 import type { PresenceShow } from '@fnlb-project/stanza/Constants';
 import type {
@@ -102,6 +103,11 @@ class Client extends EventEmitter {
   public xmpp: XMPP;
 
   /**
+   * EOS Connect STOMP manager
+   */
+  public stompEOSConnect: EOSConnect;
+
+  /**
    * Friend manager
    */
   public friend: FriendManager;
@@ -148,6 +154,7 @@ class Client extends EventEmitter {
       forceNewParty: true,
       disablePartyService: false,
       connectToXMPP: true,
+      connectToStompEOSConnect: true,
       fetchFriends: true,
       restRetryLimit: 1,
       handleRatelimits: true,
@@ -196,6 +203,7 @@ class Client extends EventEmitter {
     this.auth = new Auth(this);
     this.http = new Http(this);
     this.xmpp = new XMPP(this);
+    this.stompEOSConnect = new EOSConnect(this);
 
     this.partyLock = new AsyncLock();
     this.cacheLock = new AsyncLock();
@@ -244,6 +252,7 @@ class Client extends EventEmitter {
     this.cacheLock.lock();
     try {
       if (this.config.connectToXMPP) await this.xmpp.connect();
+      if (this.config.connectToStompEOSConnect) await this.stompEOSConnect.connect();
       if (this.config.fetchFriends) await this.updateCaches();
     } finally {
       this.cacheLock.unlock();
@@ -544,6 +553,9 @@ class Client extends EventEmitter {
         break;
       case 'xmpp':
         if (typeof this.config.xmppDebug === 'function') { this.config.xmppDebug(message); }
+        break;
+      case 'eos-connect':
+        if (typeof this.config.stompEosConnectDebug === 'function') { this.config.stompEosConnectDebug(message); }
         break;
     }
   }

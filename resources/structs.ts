@@ -25,6 +25,7 @@ import type { AuthSessionStoreKey } from './enums';
 import type FortniteAuthSession from '../src/auth/FortniteAuthSession';
 import type LauncherAuthSession from '../src/auth/LauncherAuthSession';
 import type FortniteClientCredentialsAuthSession from '../src/auth/FortniteClientCredentialsAuthSession';
+import type EOSAuthSession from '../src/auth/EOSAuthSession';
 
 export type PartyMemberSchema = Partial<typeof defaultPartyMemberMeta>;
 export type PartySchema = Partial<typeof defaultPartyMeta> & {
@@ -254,6 +255,11 @@ export interface ClientConfig {
   xmppDebug?: (message: string) => void;
 
   /**
+   * Debug function used for incoming and outgoing stomp eos connect messages
+   */
+  stompEosConnectDebug?: (message: string) => void;
+
+  /**
    * Default friend presence of the bot (eg. "Playing Battle Royale")
    */
   defaultStatus?: string;
@@ -320,6 +326,13 @@ export interface ClientConfig {
    * Do not disable this unless you know what you're doing
    */
   connectToXMPP: boolean;
+
+  /**
+   * Whether the client should connect to eos connect stomp
+   * NOTE: If you disable this, receiving party or private messages will no longer work.
+   * Do not disable this unless you know what you're doing
+   */
+  connectToStompEOSConnect: boolean;
 
   /**
    * Whether the client should fetch all friends on startup.
@@ -1304,6 +1317,7 @@ export interface EOSAuthData extends AuthData {
 export interface AuthSessionStore<K, V> extends Collection<K, V> {
   get(key: AuthSessionStoreKey.Fortnite): FortniteAuthSession | undefined;
   get(key: AuthSessionStoreKey.Launcher): LauncherAuthSession | undefined;
+  get(key: AuthSessionStoreKey.FortniteEOS): EOSAuthSession | undefined;
   get(key: AuthSessionStoreKey.FortniteClientCredentials): FortniteClientCredentialsAuthSession | undefined;
   get(key: K): V | undefined;
 }
