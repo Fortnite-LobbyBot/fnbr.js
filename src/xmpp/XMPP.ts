@@ -1,5 +1,5 @@
 /* eslint-disable max-len */
-import { createClient as createStanzaClient } from 'stanza';
+import { createClient as createStanzaClient } from '@fnlb-project/stanza';
 import crypto from 'crypto';
 import { deprecate } from 'util';
 import Base from '../Base';
@@ -26,7 +26,7 @@ import { AuthSessionStoreKey } from '../../resources/enums';
 import AuthenticationMissingError from '../exceptions/AuthenticationMissingError';
 import XMPPConnectionTimeoutError from '../exceptions/XMPPConnectionTimeoutError';
 import XMPPConnectionError from '../exceptions/XMPPConnectionError';
-import type { Stanzas, Agent, Constants } from 'stanza';
+import type { Stanzas, Agent, Constants } from '@fnlb-project/stanza';
 import type Client from '../Client';
 
 const deprecationNotOverXmppAnymore = 'Chatting is not done over XMPP anymore, this function will be removed in a future version';

@@ -1,4 +1,4 @@
-import type { StreamError } from 'stanza/protocol';
+import type { StreamError } from '@fnlb-project/stanza/protocol';
 
 /**
  * Represents an error that is thrown when the XMPP connection fails to be established

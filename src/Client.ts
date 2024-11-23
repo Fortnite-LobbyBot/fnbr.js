@@ -34,7 +34,7 @@ import EpicgamesAPIError from './exceptions/EpicgamesAPIError';
 import UserManager from './managers/UserManager';
 import FriendManager from './managers/FriendManager';
 import ChatManager from './managers/ChatManager';
-import type { PresenceShow } from 'stanza/Constants';
+import type { PresenceShow } from '@fnlb-project/stanza/Constants';
 import type {
   BlurlStreamData, CreativeIslandData,
   BlurlStreamMasterPlaylistData, CreativeDiscoveryPanel,
