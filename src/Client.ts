@@ -28,7 +28,6 @@ import NewsMessage from './structures/NewsMessage';
 import EventTimeoutError from './exceptions/EventTimeoutError';
 import FortniteServerStatus from './structures/FortniteServerStatus';
 import EpicgamesServerStatus from './structures/EpicgamesServerStatus';
-import TournamentManager from './managers/TournamentManager';
 import { AuthSessionStoreKey } from '../resources/enums';
 import EpicgamesAPIError from './exceptions/EpicgamesAPIError';
 import UserManager from './managers/UserManager';
@@ -118,11 +117,6 @@ class Client extends EventEmitter {
    * The client's current party
    */
   public party?: ClientParty;
-
-  /**
-   * The client's tournament manager.
-   */
-  public tournaments: TournamentManager;
 
   /**
    * The last saved client party member meta
@@ -217,7 +211,6 @@ class Client extends EventEmitter {
 
     this.party = undefined;
     this.chat = new ChatManager(this);
-    this.tournaments = new TournamentManager(this);
     this.lastPartyMemberMeta = this.config.defaultPartyMemberMeta;
   }
 

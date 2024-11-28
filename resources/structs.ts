@@ -18,7 +18,7 @@ import type PartyMemberConfirmation from '../src/structures/party/PartyMemberCon
 import type PartyMessage from '../src/structures/party/PartyMessage';
 import type ReceivedPartyInvitation from '../src/structures/party/ReceivedPartyInvitation';
 import type User from '../src/structures/user/User';
-import type { EpicgamesOAuthData, TournamentWindowTemplateData } from './httpResponses';
+import type { EpicgamesOAuthData } from './httpResponses';
 import type ReceivedFriendMessage from '../src/structures/friend/ReceivedFriendMessage';
 import type { AuthSessionStoreKey } from './enums';
 import type FortniteAuthSession from '../src/auth/FortniteAuthSession';
@@ -1032,42 +1032,6 @@ export type FullPlatform = 'Windows' | 'Android' | 'PS4' | 'XboxOne' | 'XSX' | '
 
 export type SentMessageType = 'PARTY' | 'FRIEND';
 
-export interface TournamentColors {
-  titleColor?: string;
-  backgroundTextColor?: string;
-  backgroundRightColor?: string;
-  backgroundLeftColor?: string;
-  shadowColor?: string;
-  posterFadeColor?: string;
-  baseColor?: string;
-  highlightColor?: string;
-}
-
-export interface TournamentImages {
-  loadingScreenImage?: string;
-  posterBackImage?: string;
-  posterFrontImage?: string;
-  playlistTileImage?: string;
-}
-
-export interface TournamentTexts {
-  pinEarnedText?: string;
-  pinScoreRequirement?: number;
-  scheduleInfo?: string;
-  flavorDescription?: string;
-  shortFormatTitle?: string;
-  titleLine1?: string;
-  titleLine2?: string;
-  detailsDescription?: string;
-  longFormatTitle?: string;
-  backgroundTitle?: string;
-}
-
-export interface TournamentWindowTemplate {
-  windowId: string;
-  templateData: TournamentWindowTemplateData;
-}
-
 export interface PresencePartyData {
   bIsPrivate?: boolean;
   sourceId?: string;
@@ -1182,11 +1146,6 @@ export interface ReplayDownloadConfig {
 
 export interface ReplayDownloadOptions extends Partial<ReplayDownloadConfig> { }
 
-export interface EventTokensResponse {
-  user: User;
-  tokens: string[];
-}
-
 export interface BRAccountLevel {
   level: number;
   progress: number;
@@ -1195,21 +1154,6 @@ export interface BRAccountLevel {
 export interface BRAccountLevelData {
   user: User;
   level: BRAccountLevel;
-}
-
-export interface TournamentSessionMetadata {
-  changelist: number;
-  checkpoints: ReplayCheckpoint[];
-  dataChunks: ReplayDataChunk[];
-  desiredDelayInSeconds: number;
-  events: ReplayEvent[];
-  friendlyName: string;
-  lengthInMS: number;
-  networkVersion: number;
-  replayName: string;
-  timestamp: Date;
-  isCompressed: boolean;
-  isLive: boolean;
 }
 
 export interface StatsLevelData {

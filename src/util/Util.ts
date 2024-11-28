@@ -1,11 +1,9 @@
 /* eslint-disable no-restricted-syntax */
 import readline from 'readline';
 import zlib from 'zlib';
-import crypto from 'crypto';
 import { promises as fs } from 'fs';
-import BinaryWriter from './BinaryWriter';
 import type {
-  Schema, ReplayData, ReplayDataChunk, ReplayEvent,
+  Schema,
   StatsPlaylistTypeData,
   AuthStringResolveable,
   DeviceAuthResolveable,
@@ -141,133 +139,6 @@ export const parseM3U8File = (data: string) => {
   }
 
   return output;
-};
-
-const buildReplayMeta = (replay: BinaryWriter, replayData: ReplayData) => {
-  replay
-    .writeUInt32(480436863)
-    .writeUInt32(6)
-    .writeUInt32(replayData.LengthInMS)
-    .writeUInt32(replayData.NetworkVersion)
-    .writeUInt32(replayData.Changelist)
-    .writeString(replayData.FriendlyName.padEnd(256), 'utf16le')
-    .writeBool(replayData.bIsLive)
-    .writeUInt64((BigInt(new Date(replayData.Timestamp).getTime()) * BigInt('10000')) + BigInt('621355968000000000'))
-    .writeBool(replayData.bCompressed)
-    .writeBool(false)
-    .writeUInt32(0);
-};
-
-type ReplayChunkData = Partial<ReplayEvent & ReplayDataChunk>;
-
-interface ReplayChunk extends ReplayChunkData {
-  chunkType: number;
-  data: Buffer;
-}
-
-const buildChunks = (replay: BinaryWriter, replayData: ReplayData) => {
-  const chunks: ReplayChunk[] = [{
-    chunkType: 0,
-    data: replayData.Header,
-  },
-  ...replayData.DataChunks?.map((c) => ({
-    ...c,
-    chunkType: 1,
-  })) || [],
-  ...replayData.Checkpoints?.map((c) => ({
-    ...c,
-    chunkType: 2,
-  })) || [],
-  ...replayData.Events?.map((c) => ({
-    ...c,
-    chunkType: 3,
-  })) || []];
-
-  for (const chunk of chunks) {
-    replay.writeUInt32(chunk.chunkType);
-
-    const chunkSizeOffset = replay.offset;
-    replay.writeInt32(0);
-
-    switch (chunk.chunkType) {
-      case 0:
-        replay.writeBytes(chunk.data);
-        break;
-      case 1:
-        replay
-          .writeUInt32(chunk.Time1!)
-          .writeUInt32(chunk.Time2!)
-          .writeUInt32(chunk.data.length)
-          .writeInt32(chunk.SizeInBytes!)
-          .writeBytes(chunk.data);
-        break;
-      case 2:
-        replay
-          .writeString(chunk.Id!)
-          .writeString(chunk.Group!)
-          .writeString(chunk.Metadata || '')
-          .writeUInt32(chunk.Time1!)
-          .writeUInt32(chunk.Time2!)
-          .writeUInt32(chunk.data.length)
-          .writeBytes(chunk.data);
-        break;
-      case 3:
-        replay
-          .writeString(chunk.Id!)
-          .writeString(chunk.Group!)
-          .writeString(chunk.Metadata || '')
-          .writeUInt32(chunk.Time1!)
-          .writeUInt32(chunk.Time2!)
-          .writeUInt32(chunk.data.length)
-          .writeBytes(chunk.data);
-        break;
-    }
-
-    const chunkSize = replay.offset - (chunkSizeOffset + 4);
-
-    const savedOffset = replay.offset;
-    replay
-      .goto(chunkSizeOffset)
-      .writeInt32(chunkSize)
-      .goto(savedOffset);
-  }
-};
-
-export const buildReplay = (replayData: ReplayData, addStats: boolean) => {
-  if (replayData.Events && addStats) {
-    replayData.Events.push({
-      Id: `${replayData.ReplayName}_${crypto.randomBytes(16).toString('hex')}`,
-      Group: 'AthenaReplayBrowserEvents',
-      Metadata: 'AthenaMatchStats',
-      data: Buffer.alloc(48),
-      Time1: replayData.LengthInMS - 15000,
-      Time2: replayData.LengthInMS - 15000,
-    });
-
-    replayData.Events.push({
-      Id: `${replayData.ReplayName}_${crypto.randomBytes(16).toString('hex')}`,
-      Group: 'AthenaReplayBrowserEvents',
-      Metadata: 'AthenaMatchTeamStats',
-      data: Buffer.alloc(12),
-      Time1: replayData.LengthInMS - 15000,
-      Time2: replayData.LengthInMS - 15000,
-    });
-  }
-
-  const finalReplayByteLength = 562 // meta
-    + 8 + replayData.Header.length // header
-    + (replayData.DataChunks?.map((c) => 8 + 16 + c.data.length).reduce((acc, cur) => acc + cur) || 0) // datachunks
-    + (replayData.Events?.map((e) => 8 + 12 + e.Id.length + 5 + e.Group.length + 5
-      + (e.Metadata ? e.Metadata.length + 5 : 5) + e.data.length).reduce((acc, cur) => acc + cur) || 0) // events
-    + (replayData.Checkpoints?.map((c) => 8 + 12 + c.Id.length + 5 + c.Group.length + 5
-      + (c.Metadata ? c.Metadata.length + 5 : 5) + c.data.length).reduce((acc, cur) => acc + cur) || 0); // checkpoints
-
-  const replay = new BinaryWriter(Buffer.alloc(finalReplayByteLength));
-
-  buildReplayMeta(replay, replayData);
-  buildChunks(replay, replayData);
-
-  return replay.buffer;
 };
 
 const defaultStats = {
