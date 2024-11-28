@@ -40,7 +40,7 @@ class RadioStation extends Base {
 
   /**
    * Downloads the radio station's stream
-   * @throws {AxiosError}
+   * @throws {Error}
    */
   public async downloadStream() {
     return this.client.downloadBlurlStream(this.resourceId);

@@ -42,7 +42,7 @@ class Image extends Base {
 
   /**
    * Downloads the image
-   * @throws {AxiosError}
+   * @throws {Error}
    */
   public async download(): Promise<Buffer> {
     const res = await this.client.http.request({

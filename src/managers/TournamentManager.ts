@@ -1,11 +1,10 @@
-import { AxiosError } from 'axios';
 import Endpoints from '../../resources/Endpoints';
 import Base from '../Base';
 import MatchNotFoundError from '../exceptions/MatchNotFoundError';
 import EventTokens from '../structures/EventTokens';
 import Tournament from '../structures/Tournament';
 import { AuthSessionStoreKey } from '../../resources/enums';
-import type { ResponseType } from 'axios';
+
 import type {
   FullPlatform, Region, TournamentSessionMetadata, TournamentWindowTemplate,
 } from '../../resources/structs';
@@ -22,7 +21,7 @@ class TournamentManager extends Base {
    * @param url The URL of the file to download
    * @param responseType The response type
    */
-  private async downloadReplayCDNFile(url: string, responseType: ResponseType) {
+  private async downloadReplayCDNFile(url: string, responseType: "json" | "arraybuffer") {
     const fileLocationInfo = await this.client.http.epicgamesRequest({
       method: 'GET',
       url,
@@ -160,15 +159,14 @@ class TournamentManager extends Base {
    * @param sessionId The session ID
    * @throws {MatchNotFoundError} The match wasn't found
    * @throws {EpicgamesAPIError}
-   * @throws {AxiosError}
+   * @throws {Error}
    */
   public async getSessionMetadata(sessionId: string): Promise<TournamentSessionMetadata> {
     let replayMetadataResponse;
     try {
       replayMetadataResponse = await this.downloadReplayCDNFile(`${Endpoints.BR_REPLAY_METADATA}%2F${sessionId}.json`, 'json');
     } catch (e) {
-      if (e instanceof AxiosError && typeof e.response?.data === 'string'
-        && e.response?.data.includes('<Message>The specified key does not exist.</Message>')) {
+      if (e instanceof Error) {
         throw new MatchNotFoundError(sessionId);
       }
 

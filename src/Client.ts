@@ -87,6 +87,8 @@ class Client extends EventEmitter {
    */
   public http: Http;
 
+  public defaultHeaders?: Record<string, any>;
+
   /**
    * User manager
    */
@@ -140,10 +142,10 @@ class Client extends EventEmitter {
 
     this.config = {
       savePartyMemberMeta: true,
-      http: {},
       debug: undefined,
       httpDebug: undefined,
       xmppDebug: undefined,
+      defaultHeaders: {},
       defaultStatus: undefined,
       defaultOnlineType: Enums.PresenceOnlineType.ONLINE,
       platform: 'WIN',
@@ -882,7 +884,7 @@ class Client extends EventEmitter {
 
   /**
    * Fetches the current epicgames server status (https://status.epicgames.com/)
-   * @throws {AxiosError}
+   * @throws {Error}
    */
   public async getEpicgamesServerStatus(): Promise<EpicgamesServerStatus> {
     const epicgamesServerStatus = await this.http.request({
@@ -914,7 +916,7 @@ class Client extends EventEmitter {
   /**
    * Downloads a blurl stream (eg a radio station stream or a news video)
    * @param id The stream ID
-   * @throws {AxiosError}
+   * @throws {Error}
    */
   public async downloadBlurlStream(id: string): Promise<BlurlStream> {
     const blurlFile = await this.http.request({

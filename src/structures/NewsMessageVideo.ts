@@ -59,7 +59,7 @@ class NewsMessageVideo extends Base {
 
   /**
    * Downloads the video
-   * @throws {AxiosError}
+   * @throws {Error}
    */
   public async download() {
     return this.client.downloadBlurlStream(this.id);

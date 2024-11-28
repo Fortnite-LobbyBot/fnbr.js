@@ -1,6 +1,5 @@
 /* eslint-disable camelcase */
 import type { Collection } from '@discordjs/collection';
-import type { RawAxiosRequestConfig } from 'axios';
 import type { PathLike } from 'fs';
 import type defaultPartyMeta from './defaultPartyMeta.json';
 import type defaultPartyMemberMeta from './defaultPartyMemberMeta.json';
@@ -39,7 +38,7 @@ export type PartySchema = Partial<typeof defaultPartyMeta> & {
 export type Schema = Record<string, string | undefined>;
 
 export type Language = 'de' | 'ru' | 'ko' | 'zh-hant' | 'pt-br' | 'en'
-| 'it' | 'fr' | 'zh-cn' | 'es' | 'ar' | 'ja' | 'pl' | 'es-419' | 'tr';
+  | 'it' | 'fr' | 'zh-cn' | 'es' | 'ar' | 'ja' | 'pl' | 'es-419' | 'tr';
 
 export type StringFunction = () => string;
 
@@ -85,7 +84,7 @@ export type AuthStringResolveable = string | PathLike | StringFunction | StringF
 export type Platform = 'WIN' | 'MAC' | 'PSN' | 'XBL' | 'SWT' | 'IOS' | 'AND' | 'PS5' | 'XSX';
 
 export type AuthClient = 'fortnitePCGameClient' | 'fortniteIOSGameClient' | 'fortniteAndroidGameClient' |
-'fortniteSwitchGameClient' | 'fortniteCNGameClient' | 'launcherAppClient2' | 'Diesel - Dauntless';
+  'fortniteSwitchGameClient' | 'fortniteCNGameClient' | 'launcherAppClient2' | 'Diesel - Dauntless';
 
 export interface RefreshTokenData {
   /**
@@ -235,11 +234,6 @@ export interface ClientConfig {
   savePartyMemberMeta: boolean;
 
   /**
-   * Additional axios request options
-   */
-  http: RawAxiosRequestConfig;
-
-  /**
    * Debug function used for general debugging purposes
    */
   debug?: (message: string) => void;
@@ -273,6 +267,8 @@ export interface ClientConfig {
    * The client's platform (WIN by default)
    */
   platform: Platform;
+
+  defaultHeaders?: Record<string, string>;
 
   /**
    * The client's default party member meta (can be used to set a custom default skin, etc)
