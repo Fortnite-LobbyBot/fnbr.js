@@ -14,7 +14,7 @@ export type RequestConfig = {
   headers?: RequestHeaders;
   data?: any;
   url: string;
-  responseType?: 'json' | 'arraybuffer';
+  responseType?: 'json' | 'arraybuffer' | 'blob';
 };
 
 /**
@@ -36,7 +36,7 @@ class HTTP extends Base {
    */
   public async request<T = any>(config: RequestConfig, retries = 0): Promise<T> {
     const reqStartTime = Date.now();
-    const { url, method = 'GET', headers = {}, data, responseType = 'json' } = config;
+    const { url, method = 'GET', headers = {}, data, responseType  } = config;
 
     let body: any
     const finalHeaders: Record<string, any> = {
@@ -75,11 +75,26 @@ class HTTP extends Base {
         throw error;
       }
 
-      // Handle response types
+      const contentType = response.headers.get("Content-Type") || "";
+
       if (responseType === 'arraybuffer') {
-        return (await response.arrayBuffer()) as unknown as T;
+        return await response.arrayBuffer() as unknown as T;
+      } else if (responseType === 'blob' || contentType.includes("application/octet-stream")) {
+        return await response.blob() as T;
+      } else if (responseType === 'json' || contentType.includes("application/json")) {
+        return await response.json() as T;
+      } else if (responseType === 'formdata' || contentType.includes("multipart/form-data")) {
+        return await response.formData() as T;
+      } else if (contentType.includes("image/")) {
+        const blob = await response.blob();
+        return URL.createObjectURL(blob) as unknown as T;
+      } else if (contentType.includes("application/x-www-form-urlencoded")) {
+        const text = await response.text();
+        return new URLSearchParams(text) as T
+      } else {
+        return await response.text() as T;
       }
-      return (await response.json()) as T;
+
     } catch (err: any) {
       const reqDuration = ((Date.now() - reqStartTime) / 1000);
 
