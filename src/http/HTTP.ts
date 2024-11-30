@@ -36,7 +36,7 @@ class HTTP extends Base {
    */
   public async request<T = any>(config: RequestConfig, retries = 0): Promise<T> {
     const reqStartTime = Date.now();
-    const { url, method = 'GET', headers = {}, data, responseType  } = config;
+    const { url, method = 'GET', headers = {}, data, responseType } = config;
 
     let body: any
     const finalHeaders: Record<string, any> = {
@@ -69,9 +69,29 @@ class HTTP extends Base {
         + `${response.status} ${response.statusText}`, 'http');
 
       if (!response.ok) {
-        const errorData = responseType === 'json' ? await response.json().catch(() => null) : null;
-        const error = new Error(response.statusText);
-        Object.assign(error, { response, errorData });
+        let errorData = null;
+        let responseBody = '';
+
+        try {
+          if (response.headers.get('content-type')?.includes('application/json')) {
+            errorData = await response.json();
+          } else if (response.headers.get('content-type')?.includes('text')) {
+            responseBody = await response.text();
+          } else {
+            responseBody = await response.text();
+          }
+        } catch {
+        }
+
+        const errorMessage = `HTTP ${response.status}: ${method} ${url}: ${responseBody}`;
+        const error = new Error(errorMessage,);
+
+        Object.assign(error, {
+          response,
+          errorData,
+          responseBody,
+        });
+
         throw error;
       }
 
