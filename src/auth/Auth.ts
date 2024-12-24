@@ -156,7 +156,7 @@ class Auth extends Base {
     try {
       await this.client.http.epicgamesRequest({
         method: 'POST',
-        url: `${Endpoints.INIT_GRANTACCESS}/${this.sessions.get(AuthSessionStoreKey.Fortnite)!.accountId}`,
+        url: `${Endpoints.INIT_REQUESTACCESS}/${this.sessions.get(AuthSessionStoreKey.Fortnite)!.accountId}`,
       }, AuthSessionStoreKey.Fortnite);
     } catch (e) {
       if (e instanceof EpicgamesAPIError && e.message === 'Client requested access grant but already has the requested access entitlement') {
