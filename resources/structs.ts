@@ -990,7 +990,7 @@ export interface Cosmetics {
   outfit?: { id: string; variants?: CosmeticVariant[]; enlightment?: CosmeticEnlightment };
   backpack?: { id: string; variants?: CosmeticVariant[]; path?: string } | null;
   pickaxe?: { id: string; variants?: CosmeticVariant[]; path?: string };
-  shoes?: { id: string; path?: string } | null;
+  shoes?: { id: string; variants?: CosmeticVariant[]; path?: string } | null;
 }
 
 export interface CosmeticVariant {
@@ -1011,6 +1011,7 @@ export interface CosmeticsVariantMeta {
   athenaCharacter?: CosmeticVariantMeta;
   athenaBackpack?: CosmeticVariantMeta;
   athenaPickaxe?: CosmeticVariantMeta;
+  athenaShoes?: CosmeticVariantMeta;
   athenaSkyDiveContrail?: CosmeticVariantMeta;
 }
 

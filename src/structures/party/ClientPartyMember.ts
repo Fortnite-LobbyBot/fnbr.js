@@ -358,6 +358,17 @@ class ClientPartyMember extends PartyMember {
         patches['Default:AthenaCosmeticLoadout_j'] = data
       } else {
         let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
+        let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
+
+        const parsedVariants: CosmeticsVariantMeta = {
+          athenaPickaxe: {
+            i: shoes.variants?.map((v) => ({
+              c: v.channel,
+              v: v.variant,
+              dE: v.dE || 0,
+            })) ?? [],
+          },
+        };
 
         data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
           ...data,
@@ -369,6 +380,20 @@ class ClientPartyMember extends PartyMember {
         });
 
         patches['Default:AthenaCosmeticLoadout_j'] = data;
+
+        delete variantData.AthenaCosmeticLoadoutVariants.vL.AthenaShoes;
+        if (parsedVariants.athenaShoes?.i[0]) {
+          variantData = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', {
+            AthenaCosmeticLoadoutVariants: {
+              vL: {
+                ...variantData.AthenaCosmeticLoadoutVariants.vL,
+                ...parsedVariants,
+              },
+            },
+          });
+
+          patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
+        }
       }
     }
 
@@ -425,8 +450,8 @@ class ClientPartyMember extends PartyMember {
    * @param path The shoes' path in the game files
    * @throws {EpicgamesAPIError}
    */
-  public async setShoes(id: string, path?: string) {
-    return this.setCosmetics({ shoes: { id, path } })
+  public async setShoes(id: string, variants: CosmeticVariant[] = [], path?: string) {
+    return this.setCosmetics({ shoes: { id, variants, path } })
   }
 
   /**
