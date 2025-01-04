@@ -10,7 +10,6 @@ import FortniteAuthSession from './FortniteAuthSession';
 import LauncherAuthSession from './LauncherAuthSession';
 import AuthClients from '../../resources/AuthClients';
 import { resolveAuthObject, resolveAuthString } from '../util/Util';
-import EpicgamesAPIError from '../exceptions/EpicgamesAPIError';
 import FortniteClientCredentialsAuthSession from './FortniteClientCredentialsAuthSession';
 import EOSAuthSession from './EOSAuthSession';
 import type {
@@ -141,8 +140,17 @@ class Auth extends Base {
    * Accepts the Fortnite End User License Agreement (EULA)
    */
   private async acceptEULA() {
+    try {
+      await this.client.http.epicgamesRequest({
+        method: 'POST',
+        url: `${Endpoints.INIT_REQUESTACCESS}/${this.sessions.get(AuthSessionStoreKey.Fortnite)!.accountId}`,
+        data: {}
+      }, AuthSessionStoreKey.Fortnite);
+    } catch (e) {
+    }
+
     const EULAdata = await this.client.http.epicgamesRequest({
-      url: `${Endpoints.INIT_EULA}/account/${this.sessions.get(AuthSessionStoreKey.Fortnite)!.accountId}`,
+      url: `${Endpoints.INIT_EULA}/account/${this.sessions.get(AuthSessionStoreKey.Fortnite)!.accountId}`
     }, AuthSessionStoreKey.Fortnite);
 
     if (!EULAdata) return { alreadyAccepted: true };
@@ -151,18 +159,8 @@ class Auth extends Base {
       method: 'POST',
       url: `${Endpoints.INIT_EULA}/version/${EULAdata.version}/account/`
         + `${this.sessions.get(AuthSessionStoreKey.Fortnite)!.accountId}/accept?locale=${EULAdata.locale}`,
+      data: {}
     }, AuthSessionStoreKey.Fortnite);
-
-    try {
-      await this.client.http.epicgamesRequest({
-        method: 'POST',
-        url: `${Endpoints.INIT_REQUESTACCESS}/${this.sessions.get(AuthSessionStoreKey.Fortnite)!.accountId}`,
-      }, AuthSessionStoreKey.Fortnite);
-    } catch (e) {
-      if (e instanceof EpicgamesAPIError && e.message === 'Client requested access grant but already has the requested access entitlement') {
-        return { alreadyAccepted: true };
-      }
-    }
 
     return { alreadyAccepted: false };
   }
