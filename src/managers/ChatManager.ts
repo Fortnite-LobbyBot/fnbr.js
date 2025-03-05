@@ -1,12 +1,19 @@
-import { randomUUID } from 'crypto';
 import Endpoints from '../../resources/Endpoints';
 import { AuthSessionStoreKey } from '../../resources/enums';
 import Base from '../Base';
 import UserNotFoundError from '../exceptions/UserNotFoundError';
 import type { ChatMessagePayload } from '../../resources/structs';
 
+function customUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8); // Asegura la variante correcta
+    return v.toString(16);
+  });
+}
+
 // private scope
-const generateCustomCorrelationId = () => `EOS-${Date.now()}-${randomUUID()}`;
+const generateCustomCorrelationId = () => `EOS-${Date.now()}-${customUUID()}`;
 
 /**
  * Represent's the client's chat manager (dm, party chat) via eos.

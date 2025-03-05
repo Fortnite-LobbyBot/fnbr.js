@@ -1,6 +1,5 @@
 /* eslint-disable max-len */
 import { createClient as createStanzaClient } from '@fnlb-project/stanza';
-import crypto from 'crypto';
 import { deprecate } from 'util';
 import Base from '../Base';
 import Endpoints from '../../resources/Endpoints';
@@ -92,6 +91,15 @@ class XMPP extends Base {
       throw new AuthenticationMissingError(AuthSessionStoreKey.Fortnite);
     }
 
+    function customRandomBytesHex(length: number) {
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        const byte = Math.floor(Math.random() * 256);
+        result += byte.toString(16).padStart(2, '0');
+      }
+      return result;
+    }
+
     this.connection = createStanzaClient({
       jid: `${this.client.user.self!.id}@${Endpoints.EPIC_PROD_ENV}`,
       server: Endpoints.EPIC_PROD_ENV,
@@ -104,7 +112,7 @@ class XMPP extends Base {
         username: this.client.user.self!.id,
         password: this.client.auth.sessions.get(AuthSessionStoreKey.Fortnite)!.accessToken,
       },
-      resource: `V2:Fortnite:${this.client.config.platform}::${crypto.randomBytes(16).toString('hex').toUpperCase()}`,
+      resource: `V2:Fortnite:${this.client.config.platform}::${customRandomBytesHex(16).toUpperCase()}`,
     });
 
     this.connection.enableKeepAlive({
