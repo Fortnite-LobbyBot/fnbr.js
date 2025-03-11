@@ -348,6 +348,12 @@ export interface ClientConfig {
    */
   restRetryLimit: number;
 
+  restTransformURL?: (url: string) => string
+
+
+  restFetchAdapter?: (url: string, init: RequestInit) => Promise<Response>
+
+
   /**
    * Whether the client should handle rate limits (429 status code responses)
    */

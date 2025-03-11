@@ -1,5 +1,4 @@
 /* eslint-disable no-restricted-syntax */
-import readline from 'readline';
 import zlib from 'zlib';
 import { promises as fs } from 'fs';
 import type {
@@ -25,14 +24,6 @@ const defaultCharacters = [
   'CID_A_284_Athena_Commando_M_Prime_F',
   'CID_A_285_Athena_Commando_M_Prime_G',
 ];
-
-export const consoleQuestion = (question: string) => new Promise<string>((resolve) => {
-  const itf = readline.createInterface(process.stdin, process.stdout);
-  itf.question(question, (answer: string) => {
-    itf.close();
-    resolve(answer);
-  });
-});
 
 export const makeCamelCase = (obj: { [key: string]: any }): any => {
   const returnObj: { [key: string]: any } = {};

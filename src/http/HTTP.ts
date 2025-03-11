@@ -58,7 +58,7 @@ class HTTP extends Base {
     }
 
     try {
-      const response = await fetch(url, {
+      const response = await (this.client.config.restFetchAdapter ?? fetch)(this.client.config.restTransformURL ? this.client.config.restTransformURL(url) : url, {
         method,
         headers: finalHeaders,
         body,

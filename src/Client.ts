@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 import { EventEmitter } from 'events';
 import Enums from '../enums/Enums';
-import { consoleQuestion, parseBlurlStream, parseM3U8File } from './util/Util';
+import { parseBlurlStream, parseM3U8File } from './util/Util';
 import Auth from './auth/Auth';
 import Http from './http/HTTP';
 import AsyncLock from './util/AsyncLock';
@@ -175,7 +175,7 @@ class Client extends EventEmitter {
         },
       },
       auth: {
-        authorizationCode: async () => consoleQuestion('Please enter an authorization code: '),
+        authorizationCode: undefined,
         checkEULA: true,
         killOtherTokens: true,
         createLauncherSession: false,
@@ -527,10 +527,6 @@ class Client extends EventEmitter {
   public clearInterval(interval: any) {
     clearInterval(interval);
     this.intervals.delete(interval);
-  }
-
-  public static consoleQuestion(question: string) {
-    return consoleQuestion(question);
   }
 
   /**
