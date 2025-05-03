@@ -182,7 +182,7 @@ class XMPP extends Base {
       } else {
         this.client.debug('[XMPP] Disconnected, retry limit reached');
 
-        await this.client.logout();
+        await this.client.logout(true);
       }
     });
 

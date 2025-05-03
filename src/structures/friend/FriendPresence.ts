@@ -105,7 +105,8 @@ class FriendPresence extends Base {
     this.friend = friend;
     this.status = data.Status;
     this.onlineType = show;
-    this.platform = from.match(/(?<=\/.+?:.+?:).+(?=::)/g)?.[0] as Platform | undefined;
+    const match = from.match(/\/.+?:.+?:(.+?)::/);
+    this.platform = match?.[1] as Platform | undefined;
     this.receivedAt = new Date();
     this.isPlaying = data.bIsPlaying || false;
     this.isJoinable = data.bIsJoinable || false;

@@ -82,6 +82,11 @@ class Client extends EventEmitter {
   public cacheLock: AsyncLock;
 
   /**
+   * Login lock
+   */
+  public loginLock: AsyncLock;
+
+  /**
    * HTTP manager
    */
   public http: Http;
@@ -203,6 +208,7 @@ class Client extends EventEmitter {
 
     this.partyLock = new AsyncLock();
     this.cacheLock = new AsyncLock();
+    this.loginLock = new AsyncLock();
 
     this.isReady = false;
 
@@ -232,29 +238,40 @@ class Client extends EventEmitter {
   /* -------------------------------------------------------------------------- */
 
   /**
-   * Logs the client in.
-   * A valid authentication method must be provided in the client's config.
-   * By default, there will be a console prompt asking for an authorization code
-   * @throws {EpicgamesAPIError}
-   * @throws {EpicgamesGraphQLError}
-   */
+     * Logs the client in.
+     * A valid authentication method must be provided in the client's config.
+     * By default, there will be a console prompt asking for an authorization code
+     * @throws {EpicgamesAPIError}
+     * @throws {EpicgamesGraphQLError}
+     */
   public async login() {
-    await this.auth.authenticate();
-    await this.user.fetchSelf();
+    this.loginLock.lock();
 
-    this.initCacheSweeping();
-
-    this.cacheLock.lock();
     try {
-      if (this.config.connectToXMPP) await this.xmpp.connect();
-      if (this.config.connectToStompEOSConnect) await this.stompEOSConnect.connect();
-      if (this.config.fetchFriends) await this.updateCaches();
-    } finally {
-      this.cacheLock.unlock();
-    }
+      await this.auth.authenticate();
+      await this.user.fetchSelf();
 
-    if (!this.config.disablePartyService) await this.initParty(this.config.createParty, this.config.forceNewParty);
-    if (this.xmpp.isConnected) this.setStatus();
+      this.initCacheSweeping();
+
+      this.cacheLock.lock();
+      try {
+        if (this.config.connectToXMPP) await this.xmpp.connect();
+        if (this.config.connectToStompEOSConnect)
+          await this.stompEOSConnect.connect();
+        if (this.config.fetchFriends) await this.updateCaches();
+      } finally {
+        this.cacheLock.unlock();
+      }
+
+      if (!this.config.disablePartyService)
+        await this.initParty(
+          this.config.createParty,
+          this.config.forceNewParty
+        );
+      if (this.xmpp.isConnected) this.setStatus();
+    } finally {
+      this.loginLock.unlock();
+    }
 
     this.isReady = true;
     this.emit('ready');
@@ -264,12 +281,16 @@ class Client extends EventEmitter {
    * Logs the client out.
    * Also clears all caches, etc
    */
-  public async logout() {
-    await this.auth.revokeAllTokens();
-    this.xmpp.disconnect();
-    this.destroy();
-    this.isReady = false;
-    this.emit('disconnected');
+  public async logout(isDisconnect?: boolean) {
+    await this.loginLock.wait();
+    try {
+      await this.auth.revokeAllTokens();
+    } finally {
+      this.xmpp.disconnect();
+      this.destroy();
+      this.isReady = false;
+      this.emit('disconnected', !isDisconnect);
+    }
   }
 
   /**

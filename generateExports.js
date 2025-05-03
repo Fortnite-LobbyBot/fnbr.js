@@ -1,7 +1,7 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-restricted-syntax */
-const fs = require('fs').promises;
-const path = require('path');
+import fs from 'fs/promises';
+import path from 'path';
 
 const recursiveReaddir = async (folder) => {
   const resolvedFiles = [];
@@ -26,8 +26,8 @@ const recursiveReaddir = async (folder) => {
   let output = '';
 
   output += '// main exports\nexport { default as Client } from \'./src/Client\';\n'
-  + 'export { default as Enums } from \'./enums/Enums\';\n\n// types and interfaces\nexport * from \'./resources/structs\';\n'
-  + '\n// endpoints\nexport { default as Endpoints } from \'./resources/Endpoints\';\n';
+    + 'export { default as Enums } from \'./enums/Enums\';\n\n// types and interfaces\nexport * from \'./resources/structs\';\n'
+    + '\n// endpoints\nexport { default as Endpoints } from \'./resources/Endpoints\';\n';
 
   output += '\n// exceptions\n';
   const exceptions = await recursiveReaddir('./src/exceptions');

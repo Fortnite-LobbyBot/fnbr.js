@@ -124,22 +124,25 @@ class HTTP extends Base {
         return this.request(config, retries + 1);
       }
 
-      if (err.response?.status === 429 || err.errorData?.errorCode === 'errors.com.epicgames.common.throttled') {
+      if (
+        err.response?.status === 429 ||
+        err.errorData?.errorCode === 'errors.com.epicgames.common.throttled'
+      ) {
+        const match = err.errorData?.errorMessage?.match(/in (\d+) second/);
         const retryAfter = parseInt(
-          err.response.headers.get('Retry-After') ||
+          err.response?.headers.get('Retry-After') ||
           err.errorData?.messageVars?.[0] ||
-          err.errorData?.errorMessage?.match(/(?<=in )\d+(?= second)/)?.[0] ||
+          match?.[1] ||
           '0',
           10
         );
 
         if (!Number.isNaN(retryAfter)) {
-          const sleepTimeout = (retryAfter * 1000) + 500;
+          const sleepTimeout = retryAfter * 1000 + 500;
           await new Promise((res) => setTimeout(res, sleepTimeout));
 
           return this.request(config, retries);
         }
-
       }
 
       throw err;

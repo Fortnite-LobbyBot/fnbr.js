@@ -18,30 +18,35 @@ class PartyMemberMeta extends Meta<PartyMemberSchema> {
    * The currently equipped pickaxe ID
    */
   public get pickaxe(): string | undefined {
-    return (this.get('Default:AthenaCosmeticLoadout_j')?.AthenaCosmeticLoadout?.pickaxeDef as string)?.match(/(?<=\w*\.)\w*/)?.shift();
+    const match = (this.get('Default:AthenaCosmeticLoadout_j')?.AthenaCosmeticLoadout?.pickaxeDef as string)?.match(/\w*\.(\w*)/);
+    return match?.[1];
   }
-
   /**
    * The current emote EID
    */
   public get emote(): string | undefined {
     const emoteAsset: string = this.get('Default:FrontendEmote_j')?.FrontendEmote?.emoteItemDef;
     if (emoteAsset === 'None' || !emoteAsset) return undefined;
-    return emoteAsset.match(/(?<=\w*\.)\w*/)?.shift();
+    const match = emoteAsset.match(/\w*\.(\w*)/);
+    return match?.[1];
   }
 
   /**
    * The currently equipped backpack BID
    */
   public get backpack(): string | undefined {
-    return (this.get('Default:AthenaCosmeticLoadout_j')?.AthenaCosmeticLoadout?.backpackDef as string)?.match(/(?<=\w*\.)\w*/)?.shift();
+    const def = this.get('Default:AthenaCosmeticLoadout_j')?.AthenaCosmeticLoadout?.backpackDef as string;
+    const match = def?.match(/\w*\.(\w*)/);
+    return match?.[1];
   }
 
   /**
    * The currently equipped shoes
    */
   public get shoes(): string | undefined {
-    return (this.get('Default:AthenaCosmeticLoadout_j')?.AthenaCosmeticLoadout?.shoesDef as string)?.match(/(?<=\w*\.)\w*/)?.shift();
+    const def = this.get('Default:AthenaCosmeticLoadout_j')?.AthenaCosmeticLoadout?.shoesDef as string;
+    const match = def?.match(/\w*\.(\w*)/);
+    return match?.[1];
   }
 
   /**

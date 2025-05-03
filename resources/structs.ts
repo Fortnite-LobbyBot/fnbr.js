@@ -413,7 +413,7 @@ export interface ClientEvents {
   /**
    * Emitted when the client got shut down
    */
-  disconnected: () => void;
+  disconnected: (isLogout: boolean) => void;
 
   /**
    * Emitted when a device auth got created
