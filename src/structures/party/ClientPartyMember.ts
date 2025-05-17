@@ -361,7 +361,7 @@ class ClientPartyMember extends PartyMember {
         let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
 
         const parsedVariants: CosmeticsVariantMeta = {
-          athenaPickaxe: {
+          athenaShoes: {
             i: shoes.variants?.map((v) => ({
               c: v.channel,
               v: v.variant,
