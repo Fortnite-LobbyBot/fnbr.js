@@ -107,7 +107,7 @@ class HTTP extends Base {
         return await response.formData() as T;
       } else if (contentType.includes("image/")) {
         const blob = await response.blob();
-        return URL.createObjectURL(blob) as unknown as T;
+        return URL.createObjectURL(blob as any) as unknown as T;
       } else if (contentType.includes("application/x-www-form-urlencoded")) {
         const text = await response.text();
         return new URLSearchParams(text) as T

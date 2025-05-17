@@ -1269,13 +1269,8 @@ export interface EOSAuthData extends AuthData {
   scope: string;
 }
 
-export interface EOSAuthData extends AuthData {
-  refresh_expires: number;
-  refresh_expires_at: string;
-  refresh_token: string;
-  application_id: string;
-  merged_accounts: string[];
-  scope: string;
+export interface EOSTokenInfo {
+  active: boolean;
 }
 
 export interface AuthSessionStore<K, V> extends Collection<K, V> {

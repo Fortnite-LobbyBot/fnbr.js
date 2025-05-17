@@ -3,7 +3,7 @@ import AuthSession from './AuthSession';
 import { AuthSessionType } from '../../resources/enums';
 import Endpoints from '../../resources/Endpoints';
 import type Client from '../Client';
-import type { EOSAuthData1 } from '../../resources/structs';
+import type { EOSAuthData, EOSTokenInfo } from '../../resources/structs';
 
 class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
   public refreshToken: string;

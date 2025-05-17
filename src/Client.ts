@@ -32,7 +32,6 @@ import { AuthSessionStoreKey } from '../resources/enums';
 import EpicgamesAPIError from './exceptions/EpicgamesAPIError';
 import UserManager from './managers/UserManager';
 import FriendManager from './managers/FriendManager';
-import STWManager from './managers/STWManager';
 import STOMP from './stomp/STOMP';
 import ChatManager from './managers/ChatManager';
 import type { PresenceShow } from '@fnlb-project/stanza/Constants';
