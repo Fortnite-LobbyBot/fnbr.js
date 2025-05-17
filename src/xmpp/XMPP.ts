@@ -126,12 +126,13 @@ class XMPP extends Base {
 
     return new Promise<void>((res, rej) => {
       const timeout = setTimeout(() => {
-        rej(new XMPPConnectionTimeoutError(15000));
-      }, 15000);
+        rej(new XMPPConnectionTimeoutError(this.client.config.xmppConnectionTimeout));
+      }, this.client.config.xmppConnectionTimeout);
 
       this.connection!.once('session:started', () => {
         clearTimeout(timeout);
         this.client.debug(`[XMPP] Successfully connected (${((Date.now() - connectionStartTime) / 1000).toFixed(2)}s)`);
+        this.connectionRetryCount = 0;
 
         this.connectedAt = Date.now();
 
@@ -156,6 +157,7 @@ class XMPP extends Base {
   public disconnect() {
     if (!this.connection) return;
 
+    this.connection.disableKeepAlive();
     this.connection.removeAllListeners();
     this.connection.disconnect();
     this.connection = undefined;

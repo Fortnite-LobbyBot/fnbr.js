@@ -400,7 +400,6 @@ class ClientPartyMember extends PartyMember {
     await this.sendPatch(patches);
   }
 
-
   /**
    * Updates the client party member's outfit
    * @param id The outfit's ID
@@ -409,7 +408,7 @@ class ClientPartyMember extends PartyMember {
    * @throws {EpicgamesAPIError}
    */
   public async setOutfit(id: string, variants: CosmeticVariant[] = [], enlightment?: CosmeticEnlightment) {
-    return this.setCosmetics({ outfit: { id, variants, enlightment } })
+    return this.setCosmetics({ outfit: { id, variants, enlightment } });
   }
 
   /**
@@ -420,7 +419,7 @@ class ClientPartyMember extends PartyMember {
    * @throws {EpicgamesAPIError}
    */
   public async setBackpack(id: string, variants: CosmeticVariant[] = [], path?: string) {
-    return this.setCosmetics({ backpack: { id, variants, path } })
+    return this.setCosmetics({ backpack: { id, variants, path } });
   }
 
   /**
@@ -430,7 +429,7 @@ class ClientPartyMember extends PartyMember {
    * @param path The pet's path in the game files
    */
   public async setPet(id: string, variants: CosmeticVariant[] = [], path?: string) {
-    return this.setCosmetics({ backpack: { id, variants, path: path ?? '/BRCosmetics/Athena/Items/Cosmetics/PetCarriers' } })
+    return this.setCosmetics({ backpack: { id, variants, path: path ?? '/BRCosmetics/Athena/Items/Cosmetics/PetCarriers' } });
   }
 
   /**
@@ -441,7 +440,7 @@ class ClientPartyMember extends PartyMember {
    * @throws {EpicgamesAPIError}
    */
   public async setPickaxe(id: string, variants: CosmeticVariant[] = [], path?: string) {
-    return this.setCosmetics({ pickaxe: { id, variants, path } })
+    return this.setCosmetics({ pickaxe: { id, variants, path } });
   }
 
   /**

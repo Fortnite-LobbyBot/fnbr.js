@@ -3,7 +3,7 @@ import AuthSession from './AuthSession';
 import { AuthSessionType } from '../../resources/enums';
 import Endpoints from '../../resources/Endpoints';
 import type Client from '../Client';
-import type { EOSAuthData } from '../../resources/structs';
+import type { EOSAuthData1 } from '../../resources/structs';
 
 class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
   public refreshToken: string;
@@ -13,8 +13,9 @@ class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
   public scope: string;
 
   public refreshTimeout?: NodeJS.Timeout;
+  private readonly basePayload: Record<string, string>;
 
-  constructor(client: Client, data: EOSAuthData, clientSecret: string) {
+  constructor(client: Client, data: EOSAuthData, clientSecret: string, basePayload: Record<string, string>) {
     super(client, data, clientSecret, AuthSessionType.EOS);
 
     this.applicationId = data.application_id;
@@ -22,22 +23,26 @@ class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
     this.scope = data.scope;
     this.refreshToken = data.refresh_token;
     this.refreshTokenExpiresAt = new Date(data.refresh_expires_at);
+    this.basePayload = basePayload;
   }
 
-  public async checkIsValid(forceVerify = false) {
+  public async verify(forceVerify = false) {
     if (!forceVerify && this.isExpired) {
       return false;
     }
 
-    const validation = await this.client.http.epicgamesRequest({
+    const tokenInfo = await this.client.http.epicgamesRequest<EOSTokenInfo>({
       method: 'POST',
       url: Endpoints.EOS_TOKEN_INFO,
       headers: {
-        Authorization: `bearer ${this.accessToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
+      data: new URLSearchParams({
+        token: this.accessToken,
+      }).toString(),
     });
 
-    return validation.active === true;
+    return tokenInfo.active === true;
   }
 
   public async revoke() {
@@ -57,23 +62,27 @@ class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
   }
 
   public async refresh() {
-    clearTimeout(this.refreshTimeout);
-    this.refreshTimeout = undefined;
+    this.refreshLock.lock();
 
-    const refreshedSession = await EOSAuthSession.create(this.client, this.clientId, this.clientSecret, {
-      grant_type: 'refresh_token',
-      refresh_token: this.refreshToken,
-    });
+    try {
+      clearTimeout(this.refreshTimeout);
+      this.refreshTimeout = undefined;
 
-    this.accessToken = refreshedSession.accessToken;
-    this.expiresAt = refreshedSession.expiresAt;
-    this.refreshToken = refreshedSession.refreshToken;
-    this.refreshTokenExpiresAt = refreshedSession.refreshTokenExpiresAt;
-    this.applicationId = refreshedSession.applicationId;
-    this.mergedAccounts = refreshedSession.mergedAccounts;
-    this.scope = refreshedSession.scope;
+      const response = await EOSAuthSession.authenticate(this.client, this.clientId, this.clientSecret, {
+        ...this.basePayload,
+        grant_type: 'refresh_token',
+        refresh_token: this.refreshToken,
+      });
 
-    this.initRefreshTimeout();
+      this.accessToken = response.access_token;
+      this.expiresAt = new Date(response.expires_at);
+      this.refreshToken = response.refresh_token;
+      this.refreshTokenExpiresAt = new Date(response.refresh_expires_at);
+
+      this.initRefreshTimeout();
+    } finally {
+      this.refreshLock.unlock();
+    }
   }
 
   public initRefreshTimeout() {
@@ -81,18 +90,39 @@ class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
     this.refreshTimeout = setTimeout(() => this.refresh(), this.expiresAt.getTime() - Date.now() - 15 * 60 * 1000);
   }
 
-  public static async create(client: Client, clientId: string, clientSecret: string, data: Record<string, string>) {
-    const response = await client.http.epicgamesRequest({
+  private static async authenticate(
+    client: Client,
+    clientId: string,
+    clientSecret: string,
+    payload: Record<string, string>,
+  ) {
+    const auth = await client.http.epicgamesRequest<EOSAuthData>({
       method: 'POST',
       url: Endpoints.EOS_TOKEN,
       headers: {
         Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      data: new URLSearchParams(data).toString(),
+      data: new URLSearchParams(payload).toString(),
     });
 
-    const session = new EOSAuthSession(client, response, clientSecret);
+    return auth;
+  }
+
+  public static async create(
+    client: Client,
+    clientId: string,
+    clientSecret: string,
+    createPayload: Record<string, string>,
+    basePayload: Record<string, string>,
+  ) {
+    const auth = await EOSAuthSession.authenticate(client, clientId, clientSecret, {
+      ...basePayload,
+      ...createPayload,
+    });
+
+    const session = new EOSAuthSession(client, auth, clientSecret, basePayload);
+
     session.initRefreshTimeout();
 
     return session;

@@ -38,7 +38,7 @@ export type PartySchema = Partial<typeof defaultPartyMeta> & {
 export type Schema = Record<string, string | undefined>;
 
 export type Language = 'de' | 'ru' | 'ko' | 'zh-hant' | 'pt-br' | 'en'
-  | 'it' | 'fr' | 'zh-cn' | 'es' | 'ar' | 'ja' | 'pl' | 'es-419' | 'tr';
+| 'it' | 'fr' | 'zh-cn' | 'es' | 'ar' | 'ja' | 'pl' | 'es-419' | 'tr';
 
 export type StringFunction = () => string;
 
@@ -251,7 +251,7 @@ export interface ClientConfig {
   /**
    * Debug function used for incoming and outgoing stomp eos connect messages
    */
-  stompEosConnectDebug?: (message: string) => void;
+  stompDebug?: (message: string) => void;
 
   /**
    * Default friend presence of the bot (eg. "Playing Battle Royale")
@@ -328,7 +328,7 @@ export interface ClientConfig {
    * NOTE: If you disable this, receiving party or private messages will no longer work.
    * Do not disable this unless you know what you're doing
    */
-  connectToStompEOSConnect: boolean;
+  connectToSTOMP: boolean;
 
   /**
    * Whether the client should fetch all friends on startup.
@@ -389,9 +389,19 @@ export interface ClientConfig {
   statsPlaylistTypeParser?: (playlistId: string) => StatsPlaylistType;
 
   /**
-   * fortnite deployment id (eos)
+   * Fortnite deployment id (eos)
    */
   eosDeploymentId: string;
+
+  /**
+   * Amount of time (in ms) to wait for the XMPP connection to be established
+   */
+  xmppConnectionTimeout: number;
+
+  /**
+   * Amount of time (in ms) to wait for the STOMP connection to be established
+   */
+  stompConnectionTimeout: number;
 }
 
 export interface MatchMeta {

@@ -32,7 +32,8 @@ import { AuthSessionStoreKey } from '../resources/enums';
 import EpicgamesAPIError from './exceptions/EpicgamesAPIError';
 import UserManager from './managers/UserManager';
 import FriendManager from './managers/FriendManager';
-import EOSConnect from './stomp/EOSConnect';
+import STWManager from './managers/STWManager';
+import STOMP from './stomp/STOMP';
 import ChatManager from './managers/ChatManager';
 import type { PresenceShow } from '@fnlb-project/stanza/Constants';
 import type {
@@ -111,7 +112,7 @@ class Client extends EventEmitter {
   /**
    * EOS Connect STOMP manager
    */
-  public stompEOSConnect: EOSConnect;
+  public stomp: STOMP;
 
   /**
    * Friend manager
@@ -155,7 +156,7 @@ class Client extends EventEmitter {
       forceNewParty: true,
       disablePartyService: false,
       connectToXMPP: true,
-      connectToStompEOSConnect: true,
+      connectToSTOMP: true,
       fetchFriends: true,
       restRetryLimit: 1,
       handleRatelimits: true,
@@ -165,6 +166,8 @@ class Client extends EventEmitter {
       friendOnlineConnectionTimeout: 30000,
       friendOfflineTimeout: 300000,
       eosDeploymentId: '62a9473a2dca46b29ccf17577fcf42d7',
+      xmppConnectionTimeout: 15000,
+      stompConnectionTimeout: 15000,
       ...config,
       cacheSettings: {
         ...config.cacheSettings,
@@ -204,7 +207,7 @@ class Client extends EventEmitter {
     this.auth = new Auth(this);
     this.http = new Http(this);
     this.xmpp = new XMPP(this);
-    this.stompEOSConnect = new EOSConnect(this);
+    this.stomp = new STOMP(this);
 
     this.partyLock = new AsyncLock();
     this.cacheLock = new AsyncLock();
@@ -238,12 +241,11 @@ class Client extends EventEmitter {
   /* -------------------------------------------------------------------------- */
 
   /**
-     * Logs the client in.
-     * A valid authentication method must be provided in the client's config.
-     * By default, there will be a console prompt asking for an authorization code
-     * @throws {EpicgamesAPIError}
-     * @throws {EpicgamesGraphQLError}
-     */
+   * Logs the client in.
+   * A valid authentication method must be provided in the client's config.
+   * By default, there will be a console prompt asking for an authorization code
+   * @throws {EpicgamesAPIError}
+   */
   public async login() {
     this.loginLock.lock();
 
@@ -255,9 +257,10 @@ class Client extends EventEmitter {
 
       this.cacheLock.lock();
       try {
-        if (this.config.connectToXMPP) await this.xmpp.connect();
-        if (this.config.connectToStompEOSConnect)
-          await this.stompEOSConnect.connect();
+        await Promise.all([
+          this.config.connectToXMPP && this.xmpp.connect(),
+          this.config.connectToSTOMP && this.stomp.connect(),
+        ]);
         if (this.config.fetchFriends) await this.updateCaches();
       } finally {
         this.cacheLock.unlock();
@@ -555,7 +558,7 @@ class Client extends EventEmitter {
    * @param message Text to debug
    * @param type Debug type (regular, http or xmpp)
    */
-  public debug(message: string, type: 'regular' | 'http' | 'xmpp' | 'eos-connect' = 'regular') {
+  public debug(message: string, type: 'regular' | 'http' | 'xmpp' | 'stomp' = 'regular') {
     switch (type) {
       case 'regular':
         if (typeof this.config.debug === 'function') this.config.debug(message);
@@ -566,8 +569,8 @@ class Client extends EventEmitter {
       case 'xmpp':
         if (typeof this.config.xmppDebug === 'function') { this.config.xmppDebug(message); }
         break;
-      case 'eos-connect':
-        if (typeof this.config.stompEosConnectDebug === 'function') { this.config.stompEosConnectDebug(message); }
+      case 'stomp':
+        if (typeof this.config.stompDebug === 'function') { this.config.stompDebug(message); }
         break;
     }
   }
