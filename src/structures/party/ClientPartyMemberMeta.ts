@@ -42,11 +42,11 @@ class ClientPartyMemberMeta extends PartyMemberMeta {
           platform: {
             platformDescription: {
               name: member.client.config.platform,
-              platformType: 'DESKTOP',
+              platformType: 'MOBILE',
               onlineSubsystem: 'None',
               sessionType: '',
               externalAccountType: '',
-              crossplayPool: 'DESKTOP',
+              crossplayPool: 'MOBILE',
             },
           },
           uniqueId: 'INVALID',

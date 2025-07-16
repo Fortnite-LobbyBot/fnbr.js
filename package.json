@@ -1,7 +1,6 @@
 {
   "name": "@fnlb-project/fnbr",
-  "version": "4.1.43",
-  "type": "module",
+  "version": "4.1.48",
   "sideEffects": false,
   "description": "A library to interact with Epic Games' Fortnite HTTP and XMPP services",
   "main": "dist/index.js",
@@ -42,23 +41,23 @@
     "promises"
   ],
   "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.15.18",
-    "@typescript-eslint/eslint-plugin": "^8.32.1",
-    "@typescript-eslint/parser": "^8.32.1",
-    "eslint": "^9.27.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.14",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0",
+    "eslint": "^9.31.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-airbnb-typescript": "^18.0.0",
-    "eslint-plugin-import": "^2.31.0",
-    "jest": "^29.7.0",
+    "eslint-plugin-import": "^2.32.0",
+    "jest": "^30.0.4",
     "typescript": "^5.8.3"
   },
   "dependencies": {
     "@discordjs/collection": "^2.1.1",
-    "@fnlb-project/stanza": "^12.20.10",
+    "@fnlb-project/stanza": "^12.20.11",
     "@sapphire/async-queue": "^1.5.5",
     "tslib": "^2.8.1",
-    "ws": "^8.18.2"
+    "ws": "^8.18.3"
   },
   "optionalDependencies": {
     "fsevents": "^2.3.3"
