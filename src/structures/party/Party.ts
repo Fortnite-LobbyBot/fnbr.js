@@ -87,14 +87,7 @@ class Party extends Base {
   public get leader() {
     return this.members.find((m: PartyMember) => m.role === 'CAPTAIN');
   }
-
-  /**
-   * The currently selected playlist
-   */
-  public get playlist() {
-    return this.meta.island;
-  }
-
+  
   /**
    * The custom matchmaking key
    */
