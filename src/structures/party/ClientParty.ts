@@ -68,6 +68,13 @@ class ClientParty extends Party {
   }
 
   /**
+   * The currently selected island
+   */
+  public get island(): Island | undefined {
+    return this.leader?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic
+  }
+
+  /**
    * Returns the client's party member
    */
   public get me() {

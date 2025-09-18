@@ -1,17 +1,10 @@
 import Meta from '../../util/Meta';
-import type { Island, PartySchema } from '../../../resources/structs';
+import type {  PartySchema } from '../../../resources/structs';
 
 /**
  * Represents a party's meta
  */
 class PartyMeta extends Meta<PartySchema> {
-  /**
-   * The currently selected island
-   */
-  public get island(): Island | undefined {
-    return this.get('Default:SelectedIsland_j')?.SelectedIsland;
-  }
-
   /**
    * The region ID (EU, NAE, NAW, etc.)
    */
