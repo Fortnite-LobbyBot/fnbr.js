@@ -89,7 +89,7 @@ class ClientPartyMember extends PartyMember {
     data = this.meta.set('Default:MatchmakingInfo_j', {
       ...data,
       MatchmakingInfo: {
-        gameReadiness: ready ? 'Ready' : 'NotReady',
+        readyStatus: ready ? 'Ready' : 'NotReady',
         readyInputType: ready ? 'Touch' : 'Count',
       },
     });
@@ -109,7 +109,7 @@ class ClientPartyMember extends PartyMember {
     data = this.meta.set('Default:MatchmakingInfo_j', {
       ...data,
       MatchmakingInfo: {
-        gameReadiness: sittingOut ? 'SittingOut' : 'NotReady',
+        readyStatus: sittingOut ? 'SittingOut' : 'NotReady',
         readyInputType: 'Count',
       },
     });
