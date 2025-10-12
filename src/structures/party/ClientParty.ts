@@ -70,8 +70,8 @@ class ClientParty extends Party {
   /**
    * The currently selected island
    */
-  public get island(): Island | undefined {
-    return this.leader?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic
+  public get island(): string | undefined {
+    return this.leader?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic ?? this.members.find(m => m?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic)
   }
 
   /**
@@ -424,26 +424,38 @@ class ClientParty extends Party {
   public async setPlaylist(mnemonic: string, regionId?: string, version?: number, options?: Omit<Island, 'linkId'>) {
     if (!this.me.isLeader) throw new PartyPermissionError();
 
-    let regionIdData = this.meta.get('Default:RegionId_s');
+    let regionIdData = this.meta.get('Default:RegionId_s') || this.meta.get('Default:CurrentRegionId_s');
+
     if (regionId) {
       regionIdData = this.meta.set('Default:RegionId_s', regionId);
     }
 
-    let data = this.meta.get('Default:SelectedIsland_j');
-    data = this.meta.set('Default:SelectedIsland_j', {
+    this.leader?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic
+
+    let data = this.me.meta.get('Default:MatchmakingInfo_j');
+    data = this.me.meta.set('Default:MatchmakingInfo_j', {
       ...data,
-      SelectedIsland: {
-        ...data.SelectedIsland,
-        linkId: {
-          mnemonic,
+      MatchmakingInfo: {
+        ...data.MatchmakingInfo,
+        islandSelection: {
           version: version ?? -1,
+          ...data.MatchmakingInfo?.islandSelection,
+          island: {
+            ...data.MatchmakingInfo?.islandSelection?.island,
+            linkId: {
+              ...data.MatchmakingInfo?.islandSelection?.island?.linkId,
+              mnemonic,
+            },
+          }
         },
         ...options,
       },
     });
 
-    await this.sendPatch({
-      'Default:SelectedIsland_j': data,
+    await this.me.sendPatch({
+      'Default:MatchmakingInfo_j': data,
+    });
+    if (regionId) await this.sendPatch({
       'Default:RegionId_s': regionIdData,
     });
   }

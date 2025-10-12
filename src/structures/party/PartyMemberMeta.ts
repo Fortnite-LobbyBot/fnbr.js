@@ -67,7 +67,7 @@ class PartyMemberMeta extends Meta<PartyMemberSchema> {
    * The current input method
    */
   public get input(): string | undefined {
-    return this.get('Default:LobbyState_j')?.LobbyState?.currentInputType;
+    return this.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.currentInputType;
   }
 
   /**
@@ -110,7 +110,7 @@ class PartyMemberMeta extends Meta<PartyMemberSchema> {
    */
   public get match(): MatchMeta {
     const location = this.get('Default:PackedState_j')?.PackedState?.location;
-    const hasPreloadedAthena = this.get('Default:LobbyState_j')?.LobbyState?.hasPreloadedAthena;
+    const hasPreloadedAthena = this.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.hasPreloadedAthena;
     const playerCount = this.get('Default:NumAthenaPlayersLeft_U');
     const matchStartedAt = this.get('Default:UtcTimeStartedMatchAthena_s');
 
@@ -126,7 +126,7 @@ class PartyMemberMeta extends Meta<PartyMemberSchema> {
    * The current island info
    */
   public get island(): Island {
-    return this.get('Default:CurrentIsland_j')?.SelectedIsland;
+    return this.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island
   }
 
   /**

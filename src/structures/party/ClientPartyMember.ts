@@ -85,17 +85,17 @@ class ClientPartyMember extends PartyMember {
    * @throws {EpicgamesAPIError}
    */
   public async setReadiness(ready: boolean) {
-    let data = this.meta.get('Default:LobbyState_j');
-    data = this.meta.set('Default:LobbyState_j', {
+    let data = this.meta.get('Default:MatchmakingInfo_j');
+    data = this.meta.set('Default:MatchmakingInfo_j', {
       ...data,
-      LobbyState: {
+      MatchmakingInfo: {
         gameReadiness: ready ? 'Ready' : 'NotReady',
         readyInputType: ready ? 'Touch' : 'Count',
       },
     });
 
     await this.sendPatch({
-      'Default:LobbyState_j': data,
+      'Default:MatchmakingInfo_j': data,
     });
   }
 
@@ -105,17 +105,17 @@ class ClientPartyMember extends PartyMember {
    * @throws {EpicgamesAPIError}
    */
   public async setSittingOut(sittingOut: boolean) {
-    let data = this.meta.get('Default:LobbyState_j');
-    data = this.meta.set('Default:LobbyState_j', {
+    let data = this.meta.get('Default:MatchmakingInfo_j');
+    data = this.meta.set('Default:MatchmakingInfo_j', {
       ...data,
-      LobbyState: {
+      MatchmakingInfo: {
         gameReadiness: sittingOut ? 'SittingOut' : 'NotReady',
         readyInputType: 'Count',
       },
     });
 
     await this.sendPatch({
-      'Default:LobbyState_j': data,
+      'Default:MatchmakingInfo_j': data,
     });
   }
 
@@ -543,10 +543,10 @@ class ClientPartyMember extends PartyMember {
           gameMode: isPlaying ? 'InBattleRoyale' : 'None',
         },
       }),
-      'Default:LobbyState_j': this.meta.set('Default:LobbyState_j', {
-        ...this.meta.get('Default:LobbyState_j'),
+      'Default:MatchmakingInfo_j': this.meta.set('Default:MatchmakingInfo_j', {
+        ...this.meta.get('Default:MatchmakingInfo_j'),
         LobbyState: {
-          ...this.meta.get('Default:LobbyState_j').LobbyState,
+          ...this.meta.get('Default:MatchmakingInfo_j').MatchmakingInfo,
           hasPreloadedAthena: isPlaying,
         },
       }),

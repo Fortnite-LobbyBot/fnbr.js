@@ -1,5 +1,5 @@
 import Meta from '../../util/Meta';
-import type {  PartySchema } from '../../../resources/structs';
+import type { PartySchema } from '../../../resources/structs';
 
 /**
  * Represents a party's meta
@@ -9,7 +9,8 @@ class PartyMeta extends Meta<PartySchema> {
    * The region ID (EU, NAE, NAW, etc.)
    */
   public get regionId(): string | undefined {
-    const regionId = this.get('Default:RegionId_s');
+    const regionId = this.get('Default:RegionId_s') || this.get('Default:CurrentRegionId_s');
+
     if (typeof regionId !== 'string' || regionId.length === 0) {
       return undefined;
     }
