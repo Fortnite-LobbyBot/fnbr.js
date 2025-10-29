@@ -33,6 +33,9 @@ export type PartySchema = Partial<typeof defaultPartyMeta> & {
   'urn:epic:cfg:invite-perm_s'?: string;
   'urn:epic:cfg:not-accepting-members'?: string;
   'urn:epic:cfg:not-accepting-members-reason_i'?: string;
+  'Default:SelectedIsland_j'?: any;
+  'Default:PlaylistData_j'?: any;
+  'Default:MatchmakingInfo_j'?: any;
 };
 
 export type Schema = Record<string, string | undefined>;
