@@ -71,10 +71,11 @@ class ClientParty extends Party {
    * The currently selected island
    */
   public get playlistId(): string | undefined {
-    return this.meta.get('Default:SelectedIsland_j')?.SelectedIsland?.linkId?.mnemonic ||
-    this.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.currentIsland?.island?.linkId?.mnemonic ||
-    this.meta.get('Default:PlaylistData_j')?.PlaylistData?.linkId?.mnemonic ||
-    this.members.find(m => m?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic)
+    return this.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic ||
+      this.members.find(m => m.id !== this.me.id && m?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic)?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic ||
+      this.meta.get('Default:PlaylistData_j')?.PlaylistData?.linkId?.mnemonic ||
+      this.meta.get('Default:SelectedIsland_j')?.SelectedIsland?.linkId?.mnemonic ||
+      this.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.currentIsland?.island?.linkId?.mnemonic
   }
 
   /**
