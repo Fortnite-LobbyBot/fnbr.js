@@ -71,11 +71,57 @@ class ClientParty extends Party {
    * The currently selected island
    */
   public get playlistId(): string | undefined {
-    return this.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic ||
-      this.members.find(m => m.id !== this.me.id && m?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic)?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic ||
-      this.meta.get('Default:PlaylistData_j')?.PlaylistData?.linkId?.mnemonic ||
-      this.meta.get('Default:SelectedIsland_j')?.SelectedIsland?.linkId?.mnemonic ||
-      this.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.currentIsland?.island?.linkId?.mnemonic
+    return (() => {
+      const selections = this.members
+        .filter(m => m.id !== this.me.id)
+        .map(m => {
+          const info = m?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo;
+          if (!info?.islandSelection) return undefined;
+
+          let linkId: string | null = null;
+          try {
+            const island = JSON.parse(info.islandSelection.island);
+            linkId = island?.LinkId ?? null;
+          } catch {
+            linkId = null;
+          }
+
+          return {
+            mnemonic: linkId,
+            timestamp: info.islandSelection?.timestamp ?? null
+          };
+        })
+        .filter(
+          (x): x is { mnemonic: string; timestamp: number | null } =>
+            !!x && !!x.mnemonic
+        );
+
+      let max: { mnemonic: string; timestamp: number } | undefined = undefined;
+      for (const sel of selections) {
+        if (!max || (sel.timestamp! > max.timestamp)) {
+          max = sel as { mnemonic: string; timestamp: number };
+        }
+      }
+
+      return max?.mnemonic;
+    })()
+      || (() => {
+        const mmInfo = this.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo;
+        const tryParseIsland = (island: any) => {
+          if (typeof island === 'string') {
+            try { return JSON.parse(island)?.LinkId; } catch { return null; }
+          }
+          return island?.LinkId ?? null;
+        };
+
+        return (
+          tryParseIsland(mmInfo?.islandSelection?.island) ||
+          this.meta.get('Default:PlaylistData_j')?.PlaylistData?.LinkId ||
+          tryParseIsland(mmInfo?.currentIsland?.island) ||
+          this.meta.get('Default:SelectedIsland_j')?.SelectedIsland?.LinkId
+        );
+      })();
+
   }
 
   /**
@@ -434,7 +480,7 @@ class ClientParty extends Party {
       regionIdData = this.meta.set('Default:RegionId_s', regionId);
     }
 
-    this.leader?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.linkId?.mnemonic
+    this.leader?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.LinkId
 
     let data = this.me.meta.get('Default:MatchmakingInfo_j');
     data = this.me.meta.set('Default:MatchmakingInfo_j', {

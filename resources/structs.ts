@@ -1010,6 +1010,7 @@ export interface Cosmetics {
   backpack?: { id: string; variants?: CosmeticVariant[]; path?: string } | null;
   pickaxe?: { id: string; variants?: CosmeticVariant[]; path?: string };
   shoes?: { id: string; variants?: CosmeticVariant[]; path?: string } | null;
+  sidekick?: { id: string; variants?: CosmeticVariant[]; path?: string } | null;
 }
 
 export interface CosmeticVariant {
@@ -1032,6 +1033,7 @@ export interface CosmeticsVariantMeta {
   athenaPickaxe?: CosmeticVariantMeta;
   athenaShoes?: CosmeticVariantMeta;
   athenaSkyDiveContrail?: CosmeticVariantMeta;
+  cosmeticMimosa?: CosmeticVariantMeta;
 }
 
 export type CosmeticEnlightment = [number, number];

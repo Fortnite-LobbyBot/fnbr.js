@@ -200,6 +200,7 @@ class ClientPartyMember extends PartyMember {
     backpack,
     pickaxe,
     shoes,
+    sidekick,
   }: Cosmetics = {}) {
     const patches: Schema = {};
 
@@ -397,6 +398,106 @@ class ClientPartyMember extends PartyMember {
       }
     }
 
+    if (sidekick !== undefined) {
+      if (sidekick === null) {
+        let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
+
+        data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+          ...data,
+          AthenaCosmeticLoadout: {
+            ...data.AthenaCosmeticLoadout,
+            mimosaDef: '',
+          },
+        });
+
+        patches['Default:AthenaCosmeticLoadout_j'] = data
+
+        let mpData = this.meta.get('Default:MpLoadout_j');
+
+        const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
+
+        mpData = this.meta.set('Default:MpLoadout_j', {
+          ...mpData,
+          MpLoadout: {
+            ...data.MpLoadout,
+            d: JSON.stringify({
+              ...mpLoadoutData,
+              mm: null
+            }),
+          },
+        });
+
+        patches['Default:MpLoadout_j'] = mpData
+      } else {
+        let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
+        let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
+
+        const parsedVariants: CosmeticsVariantMeta = {
+          cosmeticMimosa: {
+            i: sidekick.variants?.map((v) => ({
+              c: v.channel,
+              v: v.variant,
+              dE: v.dE || 0,
+            })) ?? [],
+          },
+        };
+
+        data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+          ...data,
+          AthenaCosmeticLoadout: {
+            ...data.AthenaCosmeticLoadout,
+            mimosaDef: `${sidekick.path?.replace(/\/$/, '') ?? '/CosmeticCompanions/Assets/Items'
+              }/${sidekick.id}.${sidekick.id}`,
+          },
+        });
+
+        patches['Default:AthenaCosmeticLoadout_j'] = data;
+
+        delete variantData.AthenaCosmeticLoadoutVariants.vL.CosmeticMimosa;
+        if (parsedVariants.cosmeticMimosa?.i[0]) {
+          variantData = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', {
+            AthenaCosmeticLoadoutVariants: {
+              vL: {
+                ...variantData.AthenaCosmeticLoadoutVariants.vL,
+                ...parsedVariants,
+              },
+            },
+          });
+
+          patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
+        }
+
+        let mpData = this.meta.get('Default:MpLoadout_j');
+
+        const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
+
+        mpData = this.meta.set('Default:MpLoadout_j', {
+          ...mpData,
+          MpLoadout: {
+            ...data.MpLoadout,
+            d: JSON.stringify({
+              ...mpLoadoutData,
+              mm: {
+                "i": "CosmeticMimosa:" + sidekick.id,
+                "d": "0691f1ee-29d5-4619-9632-e2dd24e6674b",
+                "v": {
+                  "0": "Big Sniff",
+                  "1": "CosmeticMimosaC:companion_reactfx_ripequiver",
+                  "2": "1",
+                  "3": "2",
+                  "4": "0",
+                  "5": "1",
+                  "6": "3"
+                }
+              }
+            }),
+          },
+        });
+
+        patches['Default:MpLoadout_j'] = mpData
+      }
+    }
+
     await this.sendPatch(patches);
   }
 
@@ -445,12 +546,24 @@ class ClientPartyMember extends PartyMember {
 
   /**
    * Updates the client party member's shoes
-   * @param id The shoes's ID
+   * @param id The shoes' ID
+   * @param variants The shoes' variants
    * @param path The shoes' path in the game files
    * @throws {EpicgamesAPIError}
    */
   public async setShoes(id: string, variants: CosmeticVariant[] = [], path?: string) {
     return this.setCosmetics({ shoes: { id, variants, path } })
+  }
+
+  /**
+   * Updates the client party member's backpack
+   * @param id The sidekick's ID
+   * @param variants The sidekick's variants
+   * @param path The sidekick's path in the game files
+   * @throws {EpicgamesAPIError}
+   */
+  public async setSidekick(id: string, variants: CosmeticVariant[] = [], path?: string) {
+    return this.setCosmetics({ sidekick: { id, variants, path } });
   }
 
   /**
@@ -522,6 +635,14 @@ class ClientPartyMember extends PartyMember {
    */
   public async clearShoes() {
     return this.setCosmetics({ shoes: null })
+  }
+
+  /**
+   * Clears the client party member's sidekick
+   * @throws {EpicgamesAPIError}
+   */
+  public async clearSidekick() {
+    return this.setCosmetics({ sidekick: null })
   }
 
   /**

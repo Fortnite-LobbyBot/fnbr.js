@@ -50,6 +50,15 @@ class PartyMemberMeta extends Meta<PartyMemberSchema> {
   }
 
   /**
+   * The currently equipped sidekick
+   */
+  public get sidekick(): string | undefined {
+    const def = this.get('Default:AthenaCosmeticLoadout_j')?.AthenaCosmeticLoadout?.mimosaDef as string;
+    const match = def?.match(/\w*\.(\w*)/);
+    return match?.[1];
+  }
+
+  /**
    * Whether the member is ready
    */
   public get isReady() {

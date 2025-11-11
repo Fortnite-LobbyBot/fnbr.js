@@ -101,6 +101,14 @@ class PartyMember extends User {
   }
 
   /**
+   * The member's currently equipped sidekick
+   */
+  public get sidekick() {
+    return this.meta.sidekick;
+  }
+
+
+  /**
    * Whether the member is ready
    */
   public get isReady() {
