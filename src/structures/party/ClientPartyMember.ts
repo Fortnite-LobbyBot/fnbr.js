@@ -250,6 +250,28 @@ class ClientPartyMember extends PartyMember {
 
         patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
       }
+
+      let mpData = this.meta.get('Default:MpLoadout_j');
+
+      const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
+
+      mpData = this.meta.set('Default:MpLoadout_j', {
+        ...mpData,
+        MpLoadout: {
+          ...data.MpLoadout,
+          d: JSON.stringify({
+            ...mpLoadoutData,
+            ac: {
+              "i": outfit.id,
+              "v": [
+                "0"
+              ]
+            }
+          }),
+        },
+      });
+
+      patches['Default:MpLoadout_j'] = mpData
     }
 
     if (backpack !== undefined) {
@@ -302,6 +324,29 @@ class ClientPartyMember extends PartyMember {
 
           patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
         }
+
+
+        let mpData = this.meta.get('Default:MpLoadout_j');
+
+        const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
+
+        mpData = this.meta.set('Default:MpLoadout_j', {
+          ...mpData,
+          MpLoadout: {
+            ...data.MpLoadout,
+            d: JSON.stringify({
+              ...mpLoadoutData,
+              ab: {
+                "i": backpack.id,
+                "v": [
+                  "0"
+                ]
+              }
+            }),
+          },
+        });
+
+        patches['Default:MpLoadout_j'] = mpData
       }
     }
 
