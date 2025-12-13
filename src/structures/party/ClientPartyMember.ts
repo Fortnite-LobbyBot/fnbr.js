@@ -89,6 +89,7 @@ class ClientPartyMember extends PartyMember {
     data = this.meta.set('Default:MatchmakingInfo_j', {
       ...data,
       MatchmakingInfo: {
+        ...data.MatchmakingInfo,
         readyStatus: ready ? 'Ready' : 'NotReady',
         readyInputType: ready ? 'Touch' : 'Count',
       },
@@ -109,6 +110,7 @@ class ClientPartyMember extends PartyMember {
     data = this.meta.set('Default:MatchmakingInfo_j', {
       ...data,
       MatchmakingInfo: {
+        ...data.MatchmakingInfo,
         readyStatus: sittingOut ? 'SittingOut' : 'NotReady',
         readyInputType: 'Count',
       },
@@ -287,6 +289,23 @@ class ClientPartyMember extends PartyMember {
         });
 
         patches['Default:AthenaCosmeticLoadout_j'] = data
+
+        let mpData = this.meta.get('Default:MpLoadout_j');
+
+        const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
+
+        mpData = this.meta.set('Default:MpLoadout_j', {
+          ...mpData,
+          MpLoadout: {
+            ...data.MpLoadout,
+            d: JSON.stringify({
+              ...mpLoadoutData,
+              ab: null
+            }),
+          },
+        });
+
+        patches['Default:MpLoadout_j'] = mpData
       } else {
         let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
         let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
