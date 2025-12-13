@@ -3,7 +3,7 @@ import AuthSession from './AuthSession';
 import { AuthSessionType } from '../../resources/enums';
 import Endpoints from '../../resources/Endpoints';
 import type Client from '../Client';
-import type { EOSAuthData, EOSTokenInfo } from '../../resources/structs';
+import type { EOSAuthData } from '../../resources/structs';
 
 class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
   public refreshToken: string;
@@ -31,7 +31,7 @@ class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
       return false;
     }
 
-    const tokenInfo = await this.client.http.epicgamesRequest<EOSTokenInfo>({
+    const tokenInfo = await this.client.http.epicgamesRequest({
       method: 'POST',
       url: Endpoints.EOS_TOKEN_INFO,
       headers: {
