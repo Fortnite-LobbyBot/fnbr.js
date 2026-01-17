@@ -210,29 +210,35 @@ class ClientPartyMember extends PartyMember {
     let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
     let mpData = this.meta.get('Default:MpLoadout_j');
 
+    let mpDataObj = mpData || {};
+    if (!mpDataObj.MpLoadout) {
+      mpDataObj.MpLoadout = { d: JSON.stringify({}) };
+    } else if (!mpDataObj.MpLoadout.d) {
+      mpDataObj.MpLoadout.d = JSON.stringify({});
+    }
+
     if (outfit) {
-      mpData = this.meta.set('Default:MpLoadout_j', {
-        ...mpData,
+      const mpLoadoutD = JSON.parse(mpDataObj.MpLoadout.d || '{}');
+
+      mpDataObj = {
+        ...mpDataObj,
         MpLoadout: {
-          ...mpData.MpLoadout,
+          ...mpDataObj.MpLoadout,
           d: JSON.stringify({
-            ...JSON.parse(mpData.MpLoadout.d),
+            ...mpLoadoutD,
             ac: {
               i: outfit.id,
               v: outfit.variants?.map(() => 0) ?? [],
             },
           }),
         },
-      });
+      };
 
-      patches['Default:MpLoadout_j'] = mpData;
-
-      let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
-      let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
+      patches['Default:MpLoadout_j'] = this.meta.set('Default:MpLoadout_j', mpDataObj);
 
       const parsedVariants: CosmeticsVariantMeta = {
         athenaCharacter: {
-          i: outfit.variants?.map((v) => `${v.channelIndex}|${v.variantIndex}`) ?? [],
+          i: outfit.variants?.map((v, i) => `${i}|${v.variantIndex}`) ?? [],
         },
       };
 
@@ -244,301 +250,223 @@ class ClientPartyMember extends PartyMember {
         });
       }
 
-      data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+      data = {
         ...data,
         AthenaCosmeticLoadout: {
-          ...data.AthenaCosmeticLoadout,
+          ...(data?.AthenaCosmeticLoadout || {}),
           characterPrimaryAssetId: `AthenaCharacter:${outfit.id}`,
           scratchpad,
         },
-      });
+      };
 
-      patches['Default:AthenaCosmeticLoadout_j'] = data;
+      patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
 
-      delete variantData.AthenaCosmeticLoadoutVariants.vD.athenaCharacter;
+      delete variantData?.AthenaCosmeticLoadoutVariants?.vD?.athenaCharacter;
       if (parsedVariants.athenaCharacter?.i[0]) {
-        variantData = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', {
+        variantData = {
+          ...variantData,
           AthenaCosmeticLoadoutVariants: {
+            ...variantData?.AthenaCosmeticLoadoutVariants || {},
             vD: {
-              ...variantData.AthenaCosmeticLoadoutVariants.vD,
+              ...variantData?.AthenaCosmeticLoadoutVariants?.vD || {},
               ...parsedVariants,
             },
           },
-        });
+        };
 
-        patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
+        patches['Default:AthenaCosmeticLoadoutVariants_j'] = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', variantData);
       }
     }
 
-    if (Object.hasOwn(cosmetics, 'backpack')) {
-      mpData = this.meta.set('Default:MpLoadout_j', {
-        ...mpData,
+    if (backpack !== undefined) {
+      const mpLoadoutD = JSON.parse(mpDataObj.MpLoadout.d || '{}');
+
+      mpDataObj = {
+        ...mpDataObj,
         MpLoadout: {
-          ...mpData.MpLoadout,
+          ...mpDataObj.MpLoadout,
           d: JSON.stringify({
-            ...JSON.parse(mpData.MpLoadout.d),
+            ...mpLoadoutD,
             ab: backpack ? {
               i: backpack.id,
               v: backpack.variants?.map(() => 0) ?? [],
             } : undefined,
           }),
         },
-      });
+      };
 
-      patches['Default:MpLoadout_j'] = mpData;
+      patches['Default:MpLoadout_j'] = this.meta.set('Default:MpLoadout_j', mpDataObj);
 
-      if (!backpack) {
-        data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+      if (backpack === null) {
+        data = {
           ...data,
           AthenaCosmeticLoadout: {
-            ...data.AthenaCosmeticLoadout,
+            ...(data?.AthenaCosmeticLoadout || {}),
             backpackDef: '',
-          },
-        });
-
-        patches['Default:AthenaCosmeticLoadout_j'] = data
-
-        let mpData = this.meta.get('Default:MpLoadout_j');
-
-        const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
-
-        mpData = this.meta.set('Default:MpLoadout_j', {
-          ...mpData,
-          MpLoadout: {
-            ...data.MpLoadout,
-            d: JSON.stringify({
-              ...mpLoadoutData,
-              ab: null
-            }),
-          },
-        });
-
-        patches['Default:MpLoadout_j'] = mpData
-      } else {
-        const parsedVariants: CosmeticsVariantMeta = {
-          athenaBackpack: {
-            i: backpack.variants?.map((v) => `${v.channelIndex}|${v.variantIndex}`) ?? [],
           },
         };
 
-        data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+        patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
+      } else {
+        const parsedVariants: CosmeticsVariantMeta = {
+          athenaBackpack: {
+            i: backpack.variants?.map((v, i) => `${i}|${v.variantIndex}`) ?? [],
+          },
+        };
+
+        data = {
           ...data,
           AthenaCosmeticLoadout: {
-            ...data.AthenaCosmeticLoadout,
+            ...(data?.AthenaCosmeticLoadout || {}),
             backpackDef: `${backpack.path?.replace(/\/$/, '') ?? '/BRCosmetics/Athena/Items/Cosmetics/Backpacks'}/${backpack.id}.${backpack.id}`,
           },
-        });
+        };
 
-        patches['Default:AthenaCosmeticLoadout_j'] = data;
+        patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
 
-        delete variantData.AthenaCosmeticLoadoutVariants.vD.athenaBackpack;
+        delete variantData?.AthenaCosmeticLoadoutVariants?.vD?.athenaBackpack;
         if (parsedVariants.athenaBackpack?.i[0]) {
-          variantData = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', {
+          variantData = {
+            ...variantData,
             AthenaCosmeticLoadoutVariants: {
+              ...variantData?.AthenaCosmeticLoadoutVariants || {},
               vD: {
-                ...variantData.AthenaCosmeticLoadoutVariants.vD,
+                ...variantData?.AthenaCosmeticLoadoutVariants?.vD || {},
                 ...parsedVariants,
               },
             },
-          });
+          };
 
-          patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
+          patches['Default:AthenaCosmeticLoadoutVariants_j'] = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', variantData);
         }
-
-
-        let mpData = this.meta.get('Default:MpLoadout_j');
-
-        const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
-
-        mpData = this.meta.set('Default:MpLoadout_j', {
-          ...mpData,
-          MpLoadout: {
-            ...data.MpLoadout,
-            d: JSON.stringify({
-              ...mpLoadoutData,
-              ab: {
-                "i": backpack.id,
-                "v": [
-                  "0"
-                ]
-              }
-            }),
-          },
-        });
-
-        patches['Default:MpLoadout_j'] = mpData
       }
     }
 
     if (pickaxe !== undefined) {
-      let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
-      let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
-
       const parsedVariants: CosmeticsVariantMeta = {
         athenaPickaxe: {
-          i: pickaxe.variants?.map((v) => `${v.channelIndex}|${v.variantIndex}`) ?? [],
+          i: pickaxe.variants?.map((v, i) => `${i}|${v.variantIndex}`) ?? [],
         },
       };
 
-      data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+      data = {
         ...data,
         AthenaCosmeticLoadout: {
-          ...data.AthenaCosmeticLoadout,
+          ...(data?.AthenaCosmeticLoadout || {}),
           pickaxeDef: `${pickaxe.path?.replace(/\/$/, '') ?? '/BRCosmetics/Athena/Items/Cosmetics/Pickaxes'}/${pickaxe.id}.${pickaxe.id}`,
         },
-      });
+      };
 
-      patches['Default:AthenaCosmeticLoadout_j'] = data;
+      patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
 
-      delete variantData.AthenaCosmeticLoadoutVariants.vD.AthenaPickaxe;
+      delete variantData?.AthenaCosmeticLoadoutVariants?.vD?.AthenaPickaxe;
       if (parsedVariants.athenaPickaxe?.i[0]) {
-        variantData = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', {
+        variantData = {
+          ...variantData,
           AthenaCosmeticLoadoutVariants: {
+            ...variantData?.AthenaCosmeticLoadoutVariants || {},
             vD: {
-              ...variantData.AthenaCosmeticLoadoutVariants.vD,
+              ...variantData?.AthenaCosmeticLoadoutVariants?.vD || {},
               ...parsedVariants,
             },
           },
-        });
+        };
 
-        patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
+        patches['Default:AthenaCosmeticLoadoutVariants_j'] = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', variantData);
       }
     }
 
     if (shoes !== undefined) {
       if (shoes === null) {
-        let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
-
-        data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+        data = {
           ...data,
           AthenaCosmeticLoadout: {
-            ...data.AthenaCosmeticLoadout,
+            ...(data?.AthenaCosmeticLoadout || {}),
             shoesDef: '',
-          },
-        });
-
-        patches['Default:AthenaCosmeticLoadout_j'] = data
-      } else {
-        let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
-        let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
-
-        const parsedVariants: CosmeticsVariantMeta = {
-          athenaShoes: {
-            i: shoes.variants?.map((v) => ({
-              c: v.channel,
-              v: v.variant,
-              dE: v.dE || 0,
-            })) ?? [],
           },
         };
 
-        data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+        patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
+      } else {
+        data = {
           ...data,
           AthenaCosmeticLoadout: {
-            ...data.AthenaCosmeticLoadout,
-            shoesDef: `${shoes.path?.replace(/\/$/, '') ?? '/CosmeticShoes/Assets/Items/Cosmetics'
-              }/${shoes.id}.${shoes.id}`,
+            ...(data?.AthenaCosmeticLoadout || {}),
+            shoesDef: `${shoes.path?.replace(/\/$/, '') ?? '/CosmeticShoes/Assets/Items/Cosmetics'}/${shoes.id}.${shoes.id}`,
           },
-        });
+        };
 
-        patches['Default:AthenaCosmeticLoadout_j'] = data;
-
-        delete variantData.AthenaCosmeticLoadoutVariants.vL.AthenaShoes;
-        if (parsedVariants.athenaShoes?.i[0]) {
-          variantData = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', {
-            AthenaCosmeticLoadoutVariants: {
-              vL: {
-                ...variantData.AthenaCosmeticLoadoutVariants.vL,
-                ...parsedVariants,
-              },
-            },
-          });
-
-          patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
-        }
+        patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
       }
     }
 
     if (sidekick !== undefined) {
-      if (sidekick === null) {
-        let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
+      const mpLoadoutD = JSON.parse(mpDataObj.MpLoadout.d || '{}');
 
-        data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+      if (sidekick === null) {
+        data = {
           ...data,
           AthenaCosmeticLoadout: {
-            ...data.AthenaCosmeticLoadout,
+            ...(data?.AthenaCosmeticLoadout || {}),
             mimosaDef: '',
-          },
-        });
-
-        patches['Default:AthenaCosmeticLoadout_j'] = data
-
-        let mpData = this.meta.get('Default:MpLoadout_j');
-
-        const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
-
-        mpData = this.meta.set('Default:MpLoadout_j', {
-          ...mpData,
-          MpLoadout: {
-            ...data.MpLoadout,
-            d: JSON.stringify({
-              ...mpLoadoutData,
-              mm: null
-            }),
-          },
-        });
-
-        patches['Default:MpLoadout_j'] = mpData
-      } else {
-        let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
-        let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
-
-        const parsedVariants: CosmeticsVariantMeta = {
-          cosmeticMimosa: {
-            i: sidekick.variants?.map((v) => ({
-              c: v.channel,
-              v: v.variant,
-              dE: v.dE || 0,
-            })) ?? [],
           },
         };
 
-        data = this.meta.set('Default:AthenaCosmeticLoadout_j', {
+        patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
+
+        mpDataObj = {
+          ...mpDataObj,
+          MpLoadout: {
+            ...mpDataObj.MpLoadout,
+            d: JSON.stringify({
+              ...mpLoadoutD,
+              mm: undefined,
+            }),
+          },
+        };
+
+        patches['Default:MpLoadout_j'] = this.meta.set('Default:MpLoadout_j', mpDataObj);
+      } else {
+        const parsedVariants: CosmeticsVariantMeta = {
+          cosmeticMimosa: {
+            i: sidekick.variants?.map((v, i) => `${i}|${v.variantIndex}`) ?? [],
+          },
+        };
+
+        data = {
           ...data,
           AthenaCosmeticLoadout: {
-            ...data.AthenaCosmeticLoadout,
+            ...(data?.AthenaCosmeticLoadout || {}),
             mimosaDef: `${sidekick.path?.replace(/\/$/, '') ?? '/CosmeticCompanions/Assets/Items'
               }/${sidekick.id}.${sidekick.id}`,
           },
-        });
+        };
 
-        patches['Default:AthenaCosmeticLoadout_j'] = data;
+        patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
 
-        delete variantData.AthenaCosmeticLoadoutVariants.vL.CosmeticMimosa;
+        delete variantData?.AthenaCosmeticLoadoutVariants?.vD?.CosmeticMimosa;
         if (parsedVariants.cosmeticMimosa?.i[0]) {
-          variantData = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', {
+          variantData = {
+            ...variantData,
             AthenaCosmeticLoadoutVariants: {
-              vL: {
-                ...variantData.AthenaCosmeticLoadoutVariants.vL,
+              ...variantData?.AthenaCosmeticLoadoutVariants || {},
+              vD: {
+                ...variantData?.AthenaCosmeticLoadoutVariants?.vD || {},
                 ...parsedVariants,
               },
             },
-          });
+          };
 
-          patches['Default:AthenaCosmeticLoadoutVariants_j'] = variantData;
+          patches['Default:AthenaCosmeticLoadoutVariants_j'] = this.meta.set('Default:AthenaCosmeticLoadoutVariants_j', variantData);
         }
 
-        let mpData = this.meta.get('Default:MpLoadout_j');
-
-        const mpLoadoutData = JSON.parse(mpData.MpLoadout.d)
-
-        mpData = this.meta.set('Default:MpLoadout_j', {
-          ...mpData,
+        mpDataObj = {
+          ...mpDataObj,
           MpLoadout: {
-            ...data.MpLoadout,
+            ...mpDataObj.MpLoadout,
             d: JSON.stringify({
-              ...mpLoadoutData,
-              mm: {
+              ...mpLoadoutD,
+              mm: sidekick ? {
                 "i": "CosmeticMimosa:" + sidekick.id,
                 "d": "0691f1ee-29d5-4619-9632-e2dd24e6674b",
                 "v": {
@@ -550,12 +478,12 @@ class ClientPartyMember extends PartyMember {
                   "5": "1",
                   "6": "3"
                 }
-              }
+              } : undefined,
             }),
           },
-        });
+        };
 
-        patches['Default:MpLoadout_j'] = mpData
+        patches['Default:MpLoadout_j'] = this.meta.set('Default:MpLoadout_j', mpDataObj);
       }
     }
 

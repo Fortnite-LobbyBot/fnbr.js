@@ -1036,9 +1036,6 @@ export interface Cosmetics {
 }
 
 export interface CosmeticVariant {
-  channel: string;
-  channelIndex: number;
-  variant: string;
   variantIndex: number;
 }
 

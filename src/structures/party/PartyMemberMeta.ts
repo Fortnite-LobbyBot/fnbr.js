@@ -83,7 +83,7 @@ class PartyMemberMeta extends Meta<PartyMemberSchema> {
    * The cosmetic variants
    */
   public get variants(): CosmeticsVariantMeta {
-    return this.get('Default:AthenaCosmeticLoadoutVariants_j')?.AthenaCosmeticLoadoutVariants?.vL || {};
+    return this.get('Default:AthenaCosmeticLoadoutVariants_j')?.AthenaCosmeticLoadoutVariants?.vD || {};
   }
 
   /**

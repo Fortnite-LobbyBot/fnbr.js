@@ -480,8 +480,6 @@ class ClientParty extends Party {
       regionIdData = this.meta.set('Default:RegionId_s', regionId);
     }
 
-    this.leader?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.islandSelection?.island?.LinkId
-
     let data = this.me.meta.get('Default:MatchmakingInfo_j');
     data = this.me.meta.set('Default:MatchmakingInfo_j', {
       ...data,
@@ -492,10 +490,7 @@ class ClientParty extends Party {
           ...data.MatchmakingInfo?.islandSelection,
           island: {
             ...data.MatchmakingInfo?.islandSelection?.island,
-            linkId: {
-              ...data.MatchmakingInfo?.islandSelection?.island?.linkId,
-              mnemonic,
-            },
+            LinkId: mnemonic
           }
         },
         ...options,
