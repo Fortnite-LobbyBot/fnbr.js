@@ -1,5 +1,6 @@
 /* eslint-disable no-restricted-syntax */
 import { EventEmitter } from 'events';
+import crypto from 'crypto';
 import Enums from '../enums/Enums';
 import { parseBlurlStream, parseM3U8File } from './util/Util';
 import Auth from './auth/Auth';
@@ -131,6 +132,10 @@ class Client extends EventEmitter {
    * EOS: Chat Manager
    */
   public chat: ChatManager;
+
+  public privateKey?: crypto.KeyObject;
+  public publicKeyB64?: string;
+  public keyData?: any;
 
   /**
    * @param config The client's configuration options
@@ -270,6 +275,21 @@ class Client extends EventEmitter {
           this.config.forceNewParty
         );
       if (this.xmpp.isConnected) this.setStatus();
+
+      if (this.config.connectToSTOMP) {
+        this.generateKeypair();
+        this.keyData = await this.http.epicgamesRequest({
+          method: 'POST',
+          url: Endpoints.PUBLICKEY_SERVICE,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            key: this.publicKeyB64,
+            algorithm: 'ed25519',
+          },
+        }, AuthSessionStoreKey.Fortnite);
+      }
     } finally {
       this.loginLock.unlock();
     }
@@ -1241,6 +1261,35 @@ class Client extends EventEmitter {
     }, AuthSessionStoreKey.Fortnite);
 
     return creativeDiscovery;
+  }
+
+  public generateKeypair() {
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
+    this.privateKey = privateKey;
+    this.publicKeyB64 = publicKey.export({ type: 'spki', format: 'der' }).slice(12).toString('base64');
+  }
+
+  public createSignedMessage(conversationId: string, content: string, type = 'Persistent') {
+    if (!this.privateKey) throw new Error('Private key not generated');
+
+    const messageInfo = {
+      mid: crypto.randomUUID(),
+      sid: this.user.self!.id,
+      rid: conversationId,
+      msg: content,
+      tst: Date.now(),
+      seq: 1,
+      rec: false,
+      mts: [],
+      cty: type,
+    };
+
+    const body = Buffer.from(JSON.stringify(messageInfo)).toString('base64');
+    const message = Buffer.concat([Buffer.from(body), Buffer.from([0])]);
+    const signature = crypto.sign(null, message, this.privateKey);
+    const signatureString = signature.toString('base64');
+
+    return { body, signatureString };
   }
 }
 

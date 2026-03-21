@@ -212,25 +212,26 @@ class ClientPartyMember extends PartyMember {
 
     let mpDataObj = mpData || {};
     if (!mpDataObj.MpLoadout) {
-      mpDataObj.MpLoadout = { d: JSON.stringify({}) };
-    } else if (!mpDataObj.MpLoadout.d) {
-      mpDataObj.MpLoadout.d = JSON.stringify({});
+      mpDataObj.MpLoadout = { d: "", s: {} };
+    } else if (!mpDataObj.MpLoadout.s) {
+      mpDataObj.MpLoadout.s = {};
     }
 
     if (outfit) {
-      const mpLoadoutD = JSON.parse(mpDataObj.MpLoadout.d || '{}');
+      const mpLoadoutS = mpDataObj.MpLoadout.s ?? {};
 
       mpDataObj = {
         ...mpDataObj,
         MpLoadout: {
           ...mpDataObj.MpLoadout,
-          d: JSON.stringify({
-            ...mpLoadoutD,
+          d: "",
+          s: {
+            ...mpLoadoutS,
             ac: {
               i: outfit.id,
               v: outfit.variants?.map(() => 0) ?? [],
             },
-          }),
+          },
         },
       };
 
@@ -279,19 +280,20 @@ class ClientPartyMember extends PartyMember {
     }
 
     if (backpack !== undefined) {
-      const mpLoadoutD = JSON.parse(mpDataObj.MpLoadout.d || '{}');
+      const mpLoadoutS = mpDataObj.MpLoadout.s ?? {};
 
       mpDataObj = {
         ...mpDataObj,
         MpLoadout: {
           ...mpDataObj.MpLoadout,
-          d: JSON.stringify({
-            ...mpLoadoutD,
+          d: "",
+          s: {
+            ...mpLoadoutS,
             ab: backpack ? {
               i: backpack.id,
               v: backpack.variants?.map(() => 0) ?? [],
             } : undefined,
-          }),
+          },
         },
       };
 
@@ -401,7 +403,7 @@ class ClientPartyMember extends PartyMember {
     }
 
     if (sidekick !== undefined) {
-      const mpLoadoutD = JSON.parse(mpDataObj.MpLoadout.d || '{}');
+      const mpLoadoutS = mpDataObj.MpLoadout.s ?? {};
 
       if (sidekick === null) {
         data = {
@@ -418,10 +420,11 @@ class ClientPartyMember extends PartyMember {
           ...mpDataObj,
           MpLoadout: {
             ...mpDataObj.MpLoadout,
-            d: JSON.stringify({
-              ...mpLoadoutD,
+            d: "",
+            s: {
+              ...mpLoadoutS,
               mm: undefined,
-            }),
+            },
           },
         };
 
@@ -464,8 +467,8 @@ class ClientPartyMember extends PartyMember {
           ...mpDataObj,
           MpLoadout: {
             ...mpDataObj.MpLoadout,
-            d: JSON.stringify({
-              ...mpLoadoutD,
+            s: {
+              ...mpLoadoutS,
               mm: sidekick ? {
                 "i": "CosmeticMimosa:" + sidekick.id,
                 "d": "0691f1ee-29d5-4619-9632-e2dd24e6674b",
@@ -479,7 +482,7 @@ class ClientPartyMember extends PartyMember {
                   "6": "3"
                 }
               } : undefined,
-            }),
+            },
           },
         };
 

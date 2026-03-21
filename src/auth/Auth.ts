@@ -309,6 +309,8 @@ class Auth extends Base {
       },
     );
 
+    await eosSession.grantEasRefreshToken(eosSession.refreshToken);
+
     this.sessions.set(AuthSessionStoreKey.FortniteEOS, eosSession);
   }
 }

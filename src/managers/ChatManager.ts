@@ -3,6 +3,7 @@ import { AuthSessionStoreKey } from '../../resources/enums';
 import Base from '../Base';
 import UserNotFoundError from '../exceptions/UserNotFoundError';
 import type { ChatMessagePayload } from '../../resources/structs';
+import type EOSAuthSession from '../auth/EOSAuthSession';
 
 function customUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -26,6 +27,23 @@ class ChatManager extends Base {
     return this.client.config.eosDeploymentId;
   }
 
+  public async getConversationId(userId: string) {
+    const data = await this.client.http.epicgamesRequest({
+      method: 'POST',
+      url: `${Endpoints.EOS_CHAT}/v1/public/_/conversations?createIfExists=false`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: {
+        title: '',
+        type: 'dm',
+        members: [this.client.user.self!.id, userId],
+      },
+    }, AuthSessionStoreKey.FortniteEOS);
+
+    return data.conversationId;
+  }
+
   /**
    * Sends a private message to the specified user
    * @param user the account id or displayname
@@ -34,26 +52,37 @@ class ChatManager extends Base {
    */
   public async whisperUser(user: string, message: ChatMessagePayload) {
     const accountId = await this.client.user.resolveId(user);
+    if (!accountId) throw new UserNotFoundError(user);
 
-    if (!accountId) {
-      throw new UserNotFoundError(user);
-    }
+    const conversationId = await this.getConversationId(accountId);
+    const { body, signatureString } = this.client.createSignedMessage(conversationId, message.body);
 
-    const correlationId = generateCustomCorrelationId();
+    const eosSession = this.client.auth.sessions.get(AuthSessionStoreKey.FortniteEOS) as EOSAuthSession;
 
     await this.client.http.epicgamesRequest({
       method: 'POST',
-      url: `${Endpoints.EOS_CHAT}/v1/public/${this.namespace}/whisper/${this.client.user.self!.id}/${accountId}`,
+      url: `${Endpoints.EOS_CHAT}/v1/public/_/conversations/${conversationId}/messages?fromAccountId=${this.client.user.self!.id}`,
       headers: {
         'Content-Type': 'application/json',
-        'X-Epic-Correlation-ID': correlationId,
+        Authorization: `bearer ${eosSession.easAccessToken}`,
       },
       data: {
-        message,
+        allowedRecipients: [accountId, this.client.user.self!.id],
+        message: {
+          body,
+        },
+        isReportable: false,
+        metadata: {
+          TmV: '2',
+          Pub: this.client.keyData.jwt,
+          Sig: signatureString,
+          PlfNm: this.client.config.platform,
+          PlfId: this.client.user.self!.id,
+        },
       },
-    }, AuthSessionStoreKey.FortniteEOS);
+    });
 
-    return correlationId;
+    return conversationId;
   }
 
   /**
@@ -64,22 +93,35 @@ class ChatManager extends Base {
    * @returns the message id
    */
   public async sendMessageInConversation(conversationId: string, message: ChatMessagePayload, allowedRecipients: string[]) {
-    const correlationId = generateCustomCorrelationId();
+    const { body, signatureString } = this.client.createSignedMessage(conversationId, message.body, 'Party');
+
+    const eosSession = this.client.auth.sessions.get(AuthSessionStoreKey.FortniteEOS) as EOSAuthSession;
 
     await this.client.http.epicgamesRequest({
       method: 'POST',
       url: `${Endpoints.EOS_CHAT}/v1/public/${this.namespace}/conversations/${conversationId}/messages?fromAccountId=${this.client.user.self!.id}`,
       headers: {
         'Content-Type': 'application/json',
-        'X-Epic-Correlation-ID': correlationId,
+        Authorization: `bearer ${eosSession.easAccessToken}`,
       },
       data: {
-        allowedRecipients,
-        message,
+        allowedRecipients: allowedRecipients.filter((id) => id !== this.client.user.self!.id),
+        message: {
+          body,
+        },
+        isReportable: false,
+        metadata: {
+          TmV: '2',
+          Pub: this.client.keyData.jwt,
+          Sig: signatureString,
+          NPM: '1',
+          PlfNm: this.client.config.platform,
+          PlfId: this.client.user.self!.id,
+        },
       },
-    }, AuthSessionStoreKey.FortniteEOS);
+    });
 
-    return correlationId;
+    return conversationId;
   }
 }
 

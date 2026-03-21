@@ -26,6 +26,9 @@ export default Object.freeze({
   EOS_TOKEN_INFO: 'https://api.epicgames.dev/epic/oauth/v2/tokenInfo',
   EOS_TOKEN_REVOKE: 'https://api.epicgames.dev/epic/oauth/v2/revoke',
   EOS_CHAT: 'https://api.epicgames.dev/epic/chat',
+  CHAT_EAS_TOKEN: 'https://api.epicgames.dev/epic/oauth/v1/token',
+  CHAT_CONVERSATIONS: 'https://api.epicgames.dev/epic/chat/v1/public/_/conversations',
+  PUBLICKEY_SERVICE: 'https://publickey-service-live.ecosec.on.epicgames.com/publickey/v2/publickey/',
 
   // BATTLE ROYALE
   BR_STATS_V2: 'https://statsproxy-public-service-live.ol.epicgames.com/statsproxy/api/statsv2',
