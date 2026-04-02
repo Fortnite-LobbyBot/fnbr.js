@@ -208,34 +208,33 @@ class ClientPartyMember extends PartyMember {
 
     let data = this.meta.get('Default:AthenaCosmeticLoadout_j');
     let variantData = this.meta.get('Default:AthenaCosmeticLoadoutVariants_j');
-    let mpData = this.meta.get('Default:MpLoadout_j');
+    let mpData = this.meta.get('Default:MpLoadout1_j');
 
     let mpDataObj = mpData || {};
-    if (!mpDataObj.MpLoadout) {
-      mpDataObj.MpLoadout = { d: "", s: {} };
-    } else if (!mpDataObj.MpLoadout.s) {
-      mpDataObj.MpLoadout.s = {};
+    if (!mpDataObj.MpLoadout1) {
+      mpDataObj.MpLoadout1 = { s: {} };
+    } else if (!mpDataObj.MpLoadout1.s) {
+      mpDataObj.MpLoadout1.s = {};
     }
 
     if (outfit) {
-      const mpLoadoutS = mpDataObj.MpLoadout.s ?? {};
+      const mpLoadoutS = mpDataObj.MpLoadout1.s ?? {};
 
       mpDataObj = {
         ...mpDataObj,
-        MpLoadout: {
-          ...mpDataObj.MpLoadout,
-          d: "",
+        MpLoadout1: {
+          ...mpDataObj.MpLoadout1,
           s: {
             ...mpLoadoutS,
             ac: {
               i: outfit.id,
-              v: outfit.variants?.map(() => 0) ?? [],
+              v: outfit.variants?.map((v) => v.variantIndex.toString()) ?? [],
             },
           },
         },
       };
 
-      patches['Default:MpLoadout_j'] = this.meta.set('Default:MpLoadout_j', mpDataObj);
+      patches['Default:MpLoadout1_j'] = this.meta.set('Default:MpLoadout1_j', mpDataObj);
 
       const parsedVariants: CosmeticsVariantMeta = {
         athenaCharacter: {
@@ -280,24 +279,23 @@ class ClientPartyMember extends PartyMember {
     }
 
     if (backpack !== undefined) {
-      const mpLoadoutS = mpDataObj.MpLoadout.s ?? {};
+      const mpLoadoutS = mpDataObj.MpLoadout1.s ?? {};
 
       mpDataObj = {
         ...mpDataObj,
-        MpLoadout: {
-          ...mpDataObj.MpLoadout,
-          d: "",
+        MpLoadout1: {
+          ...mpDataObj.MpLoadout1,
           s: {
             ...mpLoadoutS,
             ab: backpack ? {
               i: backpack.id,
-              v: backpack.variants?.map(() => 0) ?? [],
+              v: backpack.variants?.map((v) => v.variantIndex.toString()) ?? [],
             } : undefined,
           },
         },
       };
 
-      patches['Default:MpLoadout_j'] = this.meta.set('Default:MpLoadout_j', mpDataObj);
+      patches['Default:MpLoadout1_j'] = this.meta.set('Default:MpLoadout1_j', mpDataObj);
 
       if (backpack === null) {
         data = {
@@ -390,6 +388,24 @@ class ClientPartyMember extends PartyMember {
 
         patches['Default:AthenaCosmeticLoadout_j'] = this.meta.set('Default:AthenaCosmeticLoadout_j', data);
       } else {
+        const mpLoadoutS = mpDataObj.MpLoadout1.s ?? {};
+
+        mpDataObj = {
+          ...mpDataObj,
+          MpLoadout1: {
+            ...mpDataObj.MpLoadout1,
+            s: {
+              ...mpLoadoutS,
+              as: shoes ? {
+                i: shoes.id,
+                v: shoes.variants?.map((v) => v.variantIndex.toString()) ?? [],
+              } : undefined,
+            },
+          },
+        };
+
+        patches['Default:MpLoadout1_j'] = this.meta.set('Default:MpLoadout1_j', mpDataObj);
+
         data = {
           ...data,
           AthenaCosmeticLoadout: {
@@ -403,7 +419,7 @@ class ClientPartyMember extends PartyMember {
     }
 
     if (sidekick !== undefined) {
-      const mpLoadoutS = mpDataObj.MpLoadout.s ?? {};
+      const mpLoadoutS = mpDataObj.MpLoadout1.s ?? {};
 
       if (sidekick === null) {
         data = {
@@ -418,9 +434,8 @@ class ClientPartyMember extends PartyMember {
 
         mpDataObj = {
           ...mpDataObj,
-          MpLoadout: {
-            ...mpDataObj.MpLoadout,
-            d: "",
+          MpLoadout1: {
+            ...mpDataObj.MpLoadout1,
             s: {
               ...mpLoadoutS,
               mm: undefined,
@@ -428,7 +443,7 @@ class ClientPartyMember extends PartyMember {
           },
         };
 
-        patches['Default:MpLoadout_j'] = this.meta.set('Default:MpLoadout_j', mpDataObj);
+        patches['Default:MpLoadout1_j'] = this.meta.set('Default:MpLoadout1_j', mpDataObj);
       } else {
         const parsedVariants: CosmeticsVariantMeta = {
           cosmeticMimosa: {
@@ -465,8 +480,8 @@ class ClientPartyMember extends PartyMember {
 
         mpDataObj = {
           ...mpDataObj,
-          MpLoadout: {
-            ...mpDataObj.MpLoadout,
+          MpLoadout1: {
+            ...mpDataObj.MpLoadout1,
             s: {
               ...mpLoadoutS,
               mm: sidekick ? {
@@ -486,7 +501,7 @@ class ClientPartyMember extends PartyMember {
           },
         };
 
-        patches['Default:MpLoadout_j'] = this.meta.set('Default:MpLoadout_j', mpDataObj);
+        patches['Default:MpLoadout1_j'] = this.meta.set('Default:MpLoadout1_j', mpDataObj);
       }
     }
 
