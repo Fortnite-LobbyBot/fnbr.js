@@ -2,16 +2,40 @@ import Meta from '../../util/Meta';
 import type {
   BannerMeta, BattlePassMeta, CosmeticsVariantMeta, PartyMemberIsland, MatchMeta, PartyMemberSchema, Platform,
 } from '../../../resources/structs';
+import { decodeSidekickLoadoutVariants } from '../../util/sidekickVariants';
 
 /**
  * Represents a party member meta
  */
 class PartyMemberMeta extends Meta<PartyMemberSchema> {
-  /**
-   * Internal helper to get the primary loadout slots object
-   */
-  private get loadoutSlots() {
+  private get loadout1Slots() {
     return this.get('Default:MpLoadout1_j')?.MpLoadout1?.s || {};
+  }
+
+  private get loadout2Slots() {
+    return this.get('Default:MpLoadout2_j')?.MpLoadout2?.s || {};
+  }
+
+  private get loadoutSlots() {
+    return this.loadout1Slots;
+  }
+
+  private readLoadoutSlotId(slot?: { i?: string; v?: (string | number)[] }) {
+    if (slot?.i) return slot.i;
+    const firstVariant = slot?.v?.[0];
+    if (firstVariant == null) return undefined;
+    return `${firstVariant}`;
+  }
+
+  private readBannerColorSlot(slot?: { i?: string; v?: (string | number)[] }) {
+    if (slot?.i && /^DefaultColor\d+$/i.test(slot.i)) return slot.i;
+
+    for (const variant of slot?.v ?? []) {
+      const value = `${variant}`;
+      if (/^DefaultColor\d+$/i.test(value)) return value;
+    }
+
+    return undefined;
   }
 
   /**
@@ -52,17 +76,26 @@ class PartyMemberMeta extends Meta<PartyMemberSchema> {
   }
 
   /**
+   * The currently equipped sidekick ID
+   */
+  public get sidekick(): string | undefined {
+    const id = this.loadoutSlots?.mm?.i;
+    if (!id) return undefined;
+    return id.replace(/^CosmeticMimosa:/, '');
+  }
+
+  /**
    * Whether the member is ready
    */
   public get isReady() {
-    return this.get('Default:LobbyState_j')?.LobbyState?.inGameReadyCheckStatus === 'Ready';
+    return this.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.readyStatus === 'Ready';
   }
 
   /**
    * Whether the member is sitting out
    */
   public get isSittingOut() {
-    return this.get('Default:LobbyState_j')?.LobbyState?.inGameReadyCheckStatus === 'SittingOut';
+    return this.get('Default:MatchmakingInfo_j')?.MatchmakingInfo?.readyStatus === 'SittingOut';
   }
 
   /**
@@ -78,23 +111,48 @@ class PartyMemberMeta extends Meta<PartyMemberSchema> {
   public get variants(): CosmeticsVariantMeta {
     const slots = this.loadoutSlots;
 
+    const mimosaVariants = decodeSidekickLoadoutVariants(
+      slots.mm?.v as Record<string, string> | string[] | undefined
+    );
+
     return {
       athenaCharacter: slots.ac?.v ? { i: slots.ac.v.map((v: string | number) => `${v}`) } : undefined,
       athenaBackpack: slots.ab?.v ? { i: slots.ab.v.map((v: string | number) => `${v}`) } : undefined,
       athenaPickaxe: slots.ap?.v ? { i: slots.ap.v.map((v: string | number) => `${v}`) } : undefined,
+      athenaShoes: slots.as?.v ? { i: slots.as.v.map((v: string | number) => `${v}`) } : undefined,
+      athenaSkyDiveContrail: slots.at?.v ? { i: slots.at.v.map((v: string | number) => `${v}`) } : undefined,
+      cosmeticMimosa: mimosaVariants ? { i: mimosaVariants } : undefined,
     };
+  }
+
+  public get glider(): string | undefined {
+    return this.readLoadoutSlotId(this.loadout1Slots.ag);
+  }
+
+  public get contrail(): string | undefined {
+    return this.readLoadoutSlotId(this.loadout1Slots.at);
   }
 
   /**
    * The banner info
    */
   public get banner(): BannerMeta | undefined {
-    const slots = this.loadoutSlots;
-    if (!slots.li?.i && !slots.lc?.i) return undefined;
+    const slots = this.loadout1Slots;
+    const slots2 = this.loadout2Slots;
+    const athenaBanner = this.get('Default:AthenaBannerInfo_j')?.AthenaBannerInfo;
+
+    const bannerIconId = this.readLoadoutSlotId(slots.li)
+      ?? this.readLoadoutSlotId(slots2.li)
+      ?? athenaBanner?.bannerIconId;
+    const bannerColorId = this.readBannerColorSlot(slots.lc)
+      ?? this.readBannerColorSlot(slots2.lc)
+      ?? athenaBanner?.bannerColorId;
+
+    if (!bannerIconId && !bannerColorId) return undefined;
 
     return {
-      bannerIconId: slots.li?.i,
-      bannerColorId: slots.lc?.i,
+      bannerIconId,
+      bannerColorId,
     };
   }
 

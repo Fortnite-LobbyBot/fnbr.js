@@ -10,6 +10,8 @@ class ReceivedPartyJoinRequest extends BasePartyJoinRequest {
   public override receiver: ClientUser;
   public override sender: Friend;
 
+  public epic: boolean;
+
   /**
    * @param client The main client
    * @param sender The user who requested to join the party
@@ -21,6 +23,7 @@ class ReceivedPartyJoinRequest extends BasePartyJoinRequest {
 
     this.sender = sender;
     this.receiver = receiver;
+    this.epic = data?.epic ?? false;
   }
 
   /**
@@ -30,7 +33,21 @@ class ReceivedPartyJoinRequest extends BasePartyJoinRequest {
    * @throws {EpicgamesAPIError}
    */
   public async accept() {
+    if (this.epic) {
+      await this.client.eosPartyInvites.acceptJoinRequest(this.sender.id);
+      return;
+    }
+
     return this.client.invite(this.sender.id);
+  }
+
+  /**
+   * Declines the join request
+   */
+  public async decline() {
+    if (this.epic) {
+      await this.client.eosPartyInvites.declineJoinRequest(this.sender.id);
+    }
   }
 }
 

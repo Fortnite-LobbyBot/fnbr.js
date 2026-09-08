@@ -107,6 +107,13 @@ class PartyMember extends User {
     return this.meta.sidekick;
   }
 
+  public get glider() {
+    return this.meta.glider;
+  }
+
+  public get contrail() {
+    return this.meta.contrail;
+  }
 
   /**
    * Whether the member is ready
@@ -233,7 +240,9 @@ class PartyMember extends User {
    */
   public updateData(data: PartyMemberUpdateData) {
     if (data.revision > this.revision) this.revision = data.revision;
-    if (data.account_dn !== this.displayName) this.update({ id: this.id, displayName: data.account_dn, externalAuths: this.externalAuths });
+    if (data.account_dn && data.account_dn !== this.displayName) {
+      this.update({ id: this.id, displayName: data.account_dn, externalAuths: this.externalAuths });
+    }
 
     this.meta.update(data.member_state_updated, true);
     this.meta.remove(data.member_state_removed as (keyof PartyMemberSchema)[]);

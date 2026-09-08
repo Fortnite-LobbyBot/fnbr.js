@@ -91,6 +91,25 @@ class XMPP extends Base {
       throw new AuthenticationMissingError(AuthSessionStoreKey.Fortnite);
     }
 
+    while (true) {
+      try {
+        await this.connectAttempt(sendStatusWhenConnected);
+        return;
+      } catch (err) {
+        this.disconnect();
+
+        if (this.connectionRetryCount >= this.client.config.xmppMaxConnectionRetries) {
+          throw err;
+        }
+
+        this.connectionRetryCount += 1;
+        this.client.debug(`[XMPP] Connection failed, retrying in 5 seconds... (${this.connectionRetryCount}/${this.client.config.xmppMaxConnectionRetries})`);
+        await new Promise((res) => setTimeout(res, 5000));
+      }
+    }
+  }
+
+  private async connectAttempt(sendStatusWhenConnected: boolean) {
     function customRandomBytesHex(length: number) {
       let result = '';
       for (let i = 0; i < length; i++) {
@@ -119,17 +138,21 @@ class XMPP extends Base {
       interval: this.client.config.xmppKeepAliveInterval,
     });
 
-    this.setupEvents();
-
     this.client.debug('[XMPP] Connecting...');
     const connectionStartTime = Date.now();
 
     return new Promise<void>((res, rej) => {
+      let settled = false;
       const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        this.disconnect();
         rej(new XMPPConnectionTimeoutError(this.client.config.xmppConnectionTimeout));
       }, this.client.config.xmppConnectionTimeout);
 
       this.connection!.once('session:started', () => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timeout);
         this.client.debug(`[XMPP] Successfully connected (${((Date.now() - connectionStartTime) / 1000).toFixed(2)}s)`);
         this.connectionRetryCount = 0;
@@ -142,11 +165,40 @@ class XMPP extends Base {
       });
 
       this.connection?.once('stream:error', (err) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timeout);
+        this.disconnect();
         rej(new XMPPConnectionError(err));
       });
 
-      this.connection!.connect();
+      this.connection!.once('disconnected', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        this.disconnect();
+        rej(new XMPPConnectionError({
+          condition: 'connection-closed',
+          text: 'The XMPP socket disconnected before the session started',
+        } as any));
+      });
+
+      this.setupEvents();
+      try {
+        Promise.resolve(this.connection!.connect() as unknown as Promise<void>).catch((err: unknown) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          this.disconnect();
+          rej(err);
+        });
+      } catch (err) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        this.disconnect();
+        rej(err);
+      }
     });
   }
 
@@ -169,29 +221,16 @@ class XMPP extends Base {
    * Registers all events
    */
   private setupEvents() {
-    this.connection!.on('disconnected', async () => {
-      this.disconnect();
-
-      if (this.connectionRetryCount >= this.client.config.xmppMaxConnectionRetries) {
-        this.client.debug('[XMPP] Disconnected, reconnecting in 5 seconds...');
-        this.connectionRetryCount += 1;
-
-        await new Promise((res) => setTimeout(res, 5000));
-
-        await this.connect();
-        if (this.client.config.fetchFriends) await this.client.updateCaches();
-        if (!this.client.config.disablePartyService) await this.client.initParty(this.client.config.createParty, this.client.config.forceNewParty);
-      } else {
-        this.client.debug('[XMPP] Disconnected, retry limit reached');
-
-        await this.client.logout(true);
-      }
+    this.connection!.on('disconnected', () => {
+      void this.handleDisconnect();
     });
 
-    this.connection!.on('raw:incoming', (raw) => this.client.debug(`IN ${raw}`, 'xmpp'));
-    this.connection!.on('raw:outgoing', (raw) => this.client.debug(`OUT ${raw}`, 'xmpp'));
+    this.connection!.on('raw:incoming', (raw) => this.debugRaw('IN', raw));
+    this.connection!.on('raw:outgoing', (raw) => this.debugRaw('OUT', raw));
 
     this.connection!.on('groupchat', async (m) => {
+      if (this.client.stomp.isConnected) return;
+
       try {
         await this.client.partyLock.wait();
 
@@ -217,6 +256,8 @@ class XMPP extends Base {
     });
 
     this.connection!.on('chat', async (m) => {
+      if (this.client.stomp.isConnected) return;
+
       try {
         const friend = await this.waitForFriend(m.from.split('@')[0]!);
         if (!friend) return;
@@ -232,48 +273,6 @@ class XMPP extends Base {
     });
 
     this.connection!.on('presence', async (p) => {
-      try {
-        await this.client.cacheLock.wait();
-        if (!p.status) return;
-
-        const friendId = p.from.split('@')[0];
-        if (friendId === this.client.user.self!.id) return;
-
-        const friend = await this.waitForFriend(friendId!);
-        if (!friend) return;
-
-        if (p.type === 'unavailable') {
-          friend.lastAvailableTimestamp = undefined;
-          friend.party = undefined;
-
-          this.client.emit('friend:offline', friend);
-          return;
-        }
-
-        const wasUnavailable = !friend.lastAvailableTimestamp;
-        friend.lastAvailableTimestamp = Date.now();
-
-        const presence = JSON.parse(p.status);
-
-        const before = this.client.friend.list.get(friendId!)?.presence;
-        const after = new FriendPresence(this.client, presence, friend, p.show || 'online', p.from);
-        if ((this.client.config.cacheSettings.presences?.maxLifetime || 0) > 0) {
-          friend.presence = after;
-        }
-
-        if (presence.Properties?.['party.joininfodata.286331153_j']) {
-          friend.party = new PresenceParty(this.client, presence.Properties['party.joininfodata.286331153_j']);
-        }
-
-        if (wasUnavailable && this.connectedAt && this.connectedAt > this.client.config.friendOnlineConnectionTimeout) {
-          this.client.emit('friend:online', friend);
-        }
-
-        this.client.emit('friend:presence', before, after);
-      } catch (err: any) {
-        this.client.debug(`[XMPP] Error while processing presence: ${err.name} - ${err.message}`);
-        this.client.emit('xmpp:presence:error', err);
-      }
     });
 
     this.connection!.on('message', async (m) => {
@@ -390,7 +389,7 @@ class XMPP extends Base {
           } break;
 
           case 'com.epicgames.social.party.notification.v0.PING': {
-            if (this.client.config.disablePartyService) break;
+if (this.client.config.disablePartyService) break;
             if (this.client.listenerCount('party:invite') === 0) break;
 
             const pingerId = body.pinger_id;
@@ -402,8 +401,7 @@ class XMPP extends Base {
               method: 'GET',
               url: `${Endpoints.BR_PARTY}/user/${this.client.user.self!.id}/pings/${pingerId}/parties`,
             }, AuthSessionStoreKey.Fortnite);
-
-            if (!data[0]) {
+if (!data[0]) {
               this.client.debug(`[XMPP] Error while processing ${body.type}: Could't find an active invitation`);
               break;
             }
@@ -643,6 +641,26 @@ class XMPP extends Base {
     });
   }
 
+  private debugRaw(direction: 'IN' | 'OUT', raw: string) {
+    const sanitized = raw.replace(/(<auth\b[^>]*>)[\s\S]*?(<\/auth>)/gi, '$1[REDACTED]$2');
+    this.client.debug(`${direction} ${sanitized}`, 'xmpp');
+  }
+
+  private async handleDisconnect() {
+    this.disconnect();
+
+    try {
+      await this.connect();
+      if (this.client.config.fetchFriends) await this.client.updateCaches();
+      if (!this.client.config.disablePartyService) {
+        await this.client.initParty(this.client.config.createParty, this.client.config.forceNewParty);
+      }
+    } catch (err: any) {
+      this.client.debug(`[XMPP] Failed to restore session: ${err.message || err}`);
+      await this.client.logout(true);
+    }
+  }
+
   /**
    * Waits for a friend to be added to the clients cache
    */
@@ -668,6 +686,8 @@ class XMPP extends Base {
    * @param to The JID of a specific friend
    */
   public sendStatus(status?: object | string, show?: Constants.PresenceShow, to?: string) {
+    if (!this.isConnected) return;
+
     if (!status) {
       this.connection?.sendPresence();
       return;

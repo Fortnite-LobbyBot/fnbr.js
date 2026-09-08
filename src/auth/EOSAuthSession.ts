@@ -87,6 +87,11 @@ class EOSAuthSession extends AuthSession<AuthSessionType.EOS> {
   }
 
   public async refresh() {
+    if (this.refreshLock.isLocked) {
+      await this.refreshLock.wait();
+      return;
+    }
+
     this.refreshLock.lock();
 
     try {

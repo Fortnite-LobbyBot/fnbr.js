@@ -47,6 +47,8 @@ class Party extends Base {
    */
   public revision: number;
 
+  public eosPartyId?: string;
+
   /**
    * @param client The main client
    * @param data The party's data
@@ -60,6 +62,9 @@ class Party extends Base {
     this.config.privacy = this.config.joinability === 'OPEN' ? PartyPrivacy.PUBLIC : PartyPrivacy.PRIVATE;
     this.meta = new PartyMeta(data.meta);
     this.revision = data.revision || 0;
+
+    const eosMatch = /^([0-9a-f]{32})-\d+-default$/i.exec(data.id);
+    this.eosPartyId = eosMatch?.[1];
 
     this.members = new Collection(data.members.map((m) => {
       if (m.account_id === this.client.user.self!.id) return [m.account_id, new ClientPartyMember(this, m)];
@@ -87,7 +92,31 @@ class Party extends Base {
   public get leader() {
     return this.members.find((m: PartyMember) => m.role === 'CAPTAIN');
   }
-  
+
+  public get mmOwner() {
+    let latest: PartyMember | undefined = this.leader;
+
+    for (const member of this.members.values()) {
+      if (!member || member.id === this.client.user.self!.id) {
+        continue;
+      }
+
+      const ts =
+        member.meta.get('Default:MatchmakingInfo_j')
+          ?.MatchmakingInfo?.islandSelection?.timestamp ?? 0;
+
+      const latestTs =
+        latest?.meta.get('Default:MatchmakingInfo_j')
+          ?.MatchmakingInfo?.islandSelection?.timestamp ?? 0;
+
+      if (!latest || ts > latestTs) {
+        latest = member;
+      }
+    }
+
+    return latest;
+  }
+
   /**
    * The custom matchmaking key
    */
@@ -205,6 +234,7 @@ class Party extends Base {
    */
   public async fetch() {
     const partyData = await this.client.getParty(this.id, true) as PartyData;
+    const previousMembers = this.members;
 
     this.createdAt = new Date(partyData.created_at);
     this.config = makeCamelCase(partyData.config);
@@ -212,10 +242,21 @@ class Party extends Base {
     this.meta = new PartyMeta(partyData.meta);
     this.revision = partyData.revision || 0;
 
-    // eslint-disable-next-line arrow-body-style
     this.members = new Collection(partyData.members.map((m) => {
-      if (m.account_id === this.client.user.self!.id) return [m.account_id, new ClientPartyMember(this, m)];
-      return [m.account_id, new PartyMember(this, m)];
+      const member = m.account_id === this.client.user.self!.id
+        ? new ClientPartyMember(this, m)
+        : new PartyMember(this, m);
+      const previous = previousMembers.get(m.account_id);
+
+      if (!member.displayName && previous?.displayName) {
+        member.update({
+          id: member.id,
+          displayName: previous.displayName,
+          externalAuths: previous.externalAuths,
+        });
+      }
+
+      return [m.account_id, member];
     }));
   }
 

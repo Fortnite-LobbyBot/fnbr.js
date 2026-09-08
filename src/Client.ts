@@ -1,8 +1,9 @@
 /* eslint-disable no-restricted-syntax */
-import { EventEmitter } from 'events';
 import crypto from 'crypto';
+import { EventEmitter } from 'events';
+import { DEFAULT_EOS_VERSION, DEFAULT_GAME_BUILD } from './util/eosConstants';
 import Enums from '../enums/Enums';
-import { parseBlurlStream, parseM3U8File } from './util/Util';
+import { parseBlurlStream, parseM3U8File, generateCrossPlatformKeyPair, signCrossPlatformMessage, getUUID, isEd25519Supported } from './util/Util';
 import Auth from './auth/Auth';
 import Http from './http/HTTP';
 import AsyncLock from './util/AsyncLock';
@@ -34,6 +35,7 @@ import UserManager from './managers/UserManager';
 import FriendManager from './managers/FriendManager';
 import STOMP from './stomp/STOMP';
 import ChatManager from './managers/ChatManager';
+import EOSPartyInviteManager from './managers/EOSPartyInviteManager';
 import type { PresenceShow } from '@fnlb-project/stanza/dist/Constants';
 import type {
   BlurlStreamData, CreativeIslandData,
@@ -60,6 +62,10 @@ class Client extends EventEmitter {
    */
   // eslint-disable-next-line no-undef
   private intervals: Set<any>;
+
+  private eosPartyRecreateInFlight = false;
+
+  private lastEOSPartyRecreateAt = 0;
 
   /**
    * All client configuration options
@@ -133,6 +139,11 @@ class Client extends EventEmitter {
    */
   public chat: ChatManager;
 
+  /**
+   * EOS Party v2 invite poller
+   */
+  public eosPartyInvites: EOSPartyInviteManager;
+
   public privateKey?: crypto.KeyObject;
   public publicKeyB64?: string;
   public keyData?: any;
@@ -160,15 +171,18 @@ class Client extends EventEmitter {
       disablePartyService: false,
       connectToXMPP: true,
       connectToSTOMP: true,
+      connectToEOSDeployment: false,
       fetchFriends: true,
       restRetryLimit: 1,
       handleRatelimits: true,
-      partyBuildId: '1:3:',
+      partyBuildId: config.partyBuildId ?? '1:3:',
       restartOnInvalidRefresh: false,
       language: 'en',
       friendOnlineConnectionTimeout: 30000,
       friendOfflineTimeout: 300000,
       eosDeploymentId: '62a9473a2dca46b29ccf17577fcf42d7',
+      eosVersion: DEFAULT_EOS_VERSION,
+      gameBuild: DEFAULT_GAME_BUILD,
       xmppConnectionTimeout: 15000,
       stompConnectionTimeout: 15000,
       ...config,
@@ -223,6 +237,7 @@ class Client extends EventEmitter {
 
     this.party = undefined;
     this.chat = new ChatManager(this);
+    this.eosPartyInvites = new EOSPartyInviteManager(this);
     this.lastPartyMemberMeta = this.config.defaultPartyMemberMeta;
   }
 
@@ -254,16 +269,30 @@ class Client extends EventEmitter {
 
     try {
       await this.auth.authenticate();
+
+      const eosDeploymentSession = this.auth.sessions.get(AuthSessionStoreKey.FortniteEOSDeployment);
+      if (eosDeploymentSession) {
+        const defaultPartyMember = JSON.parse(this.config.defaultPartyMemberMeta["Default:PackedState_j"] ?? "{}");
+        defaultPartyMember.PackedState = {
+          ...(defaultPartyMember.PackedState ?? {}),
+          eOSProductUserId: eosDeploymentSession.productUserId,
+        };
+        this.config.defaultPartyMemberMeta["Default:PackedState_j"] = JSON.stringify(defaultPartyMember);
+      }
+
       await this.user.fetchSelf();
 
       this.initCacheSweeping();
 
       this.cacheLock.lock();
       try {
-        await Promise.all([
-          this.config.connectToXMPP && this.xmpp.connect(),
-          this.config.connectToSTOMP && this.stomp.connect(),
-        ]);
+        const xmppPromise = this.config.connectToXMPP ? this.xmpp.connect() : Promise.resolve();
+        const stompPromise = this.config.connectToSTOMP
+          ? this.stomp.connect().catch((err) => {
+              this.debug(`[STOMP] Connection failed: ${err.message || err}`, 'stomp');
+            })
+          : Promise.resolve();
+        await Promise.all([xmppPromise, stompPromise]);
         if (this.config.fetchFriends) await this.updateCaches();
       } finally {
         this.cacheLock.unlock();
@@ -276,19 +305,23 @@ class Client extends EventEmitter {
         );
       if (this.xmpp.isConnected) this.setStatus();
 
-      if (this.config.connectToSTOMP) {
-        this.generateKeypair();
-        this.keyData = await this.http.epicgamesRequest({
-          method: 'POST',
-          url: Endpoints.PUBLICKEY_SERVICE,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: {
-            key: this.publicKeyB64,
-            algorithm: 'ed25519',
-          },
-        }, AuthSessionStoreKey.Fortnite);
+      if (this.config.connectToSTOMP && this.stomp.isConnected) {
+        if (await isEd25519Supported()) {
+          await this.generateKeypair();
+          this.keyData = await this.http.epicgamesRequest({
+            method: 'POST',
+            url: Endpoints.PUBLICKEY_SERVICE,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            data: {
+              key: this.publicKeyB64,
+              algorithm: 'ed25519',
+            },
+          }, AuthSessionStoreKey.Fortnite);
+        } else {
+          this.debug('[Client] Ed25519 is not supported on this device/environment. Chat message signing and STOMP will have limited functionality or be disabled.');
+        }
       }
     } finally {
       this.loginLock.unlock();
@@ -673,11 +706,130 @@ class Client extends EventEmitter {
 
     const rawOnlineType = (onlineType || this.config.defaultOnlineType) === 'online' ? undefined : onlineType || this.config.defaultOnlineType;
 
+    this.sendEOSPresence(rawStatus);
+
     return this.xmpp.sendStatus(
       rawStatus,
       rawOnlineType as PresenceShow | undefined,
       toJID,
     );
+  }
+
+  /**
+   * Sends EOS presence to Epicgames
+   * @param rawStatus The raw status object
+   * @private
+   */
+  private async sendEOSPresence(rawStatus?: any) {
+    if (!this.stomp.connectionId) {
+return;
+    }
+
+    const connectionId = this.stomp.connectionId;
+    const publicConnectionId = this.stomp.publicConnectionId || connectionId;
+    const privateConnectionId = this.stomp.privateConnectionId || connectionId;
+    const productVersion = this.getEOSProductVersion();
+    const partySize = this.party?.size || 1;
+
+    const payload: any = {
+      status: 'online',
+      activity: {
+        value: rawStatus?.Status || this.config.defaultStatus || (this.party && `Lobby - ${this.party.size} / ${this.party.maxSize}`) || 'In Lobby',
+      },
+      props: {
+        FortBasicInfo: `m${JSON.stringify({ homeBaseRating: 0 })}`,
+        FortLFG: 'i0',
+        FortPartySize: `i${partySize}`,
+        FortSubGame: 'i1',
+        IslandCode: 'sexperience_br',
+        IsInZone: 'bfalse',
+        FortGameplayStats: `m${JSON.stringify({
+          state: '',
+          playlist: 'None',
+          numKills: 0,
+          bFellToDeath: false,
+        })}`,
+        SocialStatus: `m${JSON.stringify({
+          attendingSocialEventIds: [],
+        })}`,
+        InUnjoinableMatch: 'bfalse',
+        'party.joininfodata.286331153': 'm{"bIsPrivate":true}',
+        EOS_Platform: this.config.platform,
+        EOS_IntegratedPlatform: 'EGS',
+        EOS_OnlinePlatformType: '100',
+        EOS_ProductVersion: productVersion,
+        EOS_ProductName: 'Fortnite',
+        EOS_Session: JSON.stringify({ version: 3 }),
+        EOS_Lobby: JSON.stringify({ version: 3 }),
+      },
+      conn: {
+        props: {},
+      },
+    };
+
+    const eosPartyId = this.party?.eosPartyId;
+    const clientJoinable = !!(this.party && !this.party.isPrivate && this.party.size !== this.party.maxSize);
+
+    const internalPresence: any = {
+      status: 'online',
+      activity: {},
+      conn: {
+        props: {},
+      },
+    };
+
+    if (eosPartyId) {
+      internalPresence.party = {
+        type: this.party!.isPrivate ? 'INVITE_ONLY' : 'OPEN',
+        id: eosPartyId,
+        clientJoinable: true,
+        memberCount: this.party!.size,
+        timestamp: new Date().toISOString(),
+      };
+    }
+const encodedPublicConnectionId = encodeURIComponent(publicConnectionId);
+    const encodedBareConnectionId = encodeURIComponent(connectionId);
+    const encodedPrivateConnectionId = encodeURIComponent(privateConnectionId);
+
+    try {
+      await this.http.epicgamesRequest({
+        method: 'PATCH',
+        url: `https://api.epicgames.dev/epic/presence/v1/${this.config.eosDeploymentId}/${this.user.self!.id}/presence/${encodedBareConnectionId}`,
+        data: payload,
+      }, AuthSessionStoreKey.FortniteEOS);
+} catch (e: any) {
+this.debug(`[EOS Presence] Failed to send deployment presence: ${e.message}`);
+    }
+
+    if (publicConnectionId !== connectionId) {
+      try {
+        await this.http.epicgamesRequest({
+          method: 'PATCH',
+          url: `https://api.epicgames.dev/epic/presence/v1/${this.config.eosDeploymentId}/${this.user.self!.id}/presence/${encodedPublicConnectionId}`,
+          data: payload,
+        }, AuthSessionStoreKey.FortniteEOS);
+} catch (e: any) {
+}
+    }
+
+    if (privateConnectionId !== connectionId) {
+      try {
+        await this.http.epicgamesRequest({
+          method: 'PATCH',
+          url: `https://api.epicgames.dev/epic/presence/internal/v1/_/${this.user.self!.id}/presence/${encodedPrivateConnectionId}`,
+          data: internalPresence,
+        }, AuthSessionStoreKey.FortniteEOS);
+} catch (e: any) {
+this.debug(`[EOS Presence] Failed to send internal party presence: ${e.message}`);
+      }
+    }
+  }
+
+  private getEOSProductVersion() {
+    const ua = this.config.defaultHeaders?.['User-Agent'] || this.config.defaultHeaders?.['user-agent'] || '';
+    const match = /Fortnite\/(\+\+Fortnite\+[^\s]+)/i.exec(ua);
+    if (match?.[1]) return match[1];
+    return this.config.gameBuild;
   }
 
   /**
@@ -724,64 +876,329 @@ class Client extends EventEmitter {
   }
 
   /**
-   * Creates a new party
-   * @param config The party config
-   * @throws {EpicgamesAPIError}
+   * Joins an EOS Party v2 social party and bridges into the Fortnite lobby
+   * @param eosPartyId The EOS party id (not the lobby id)
    */
-  public async createParty(config?: PartyConfig): Promise<void> {
-    if (this.party) await this.party.leave();
-    this.partyLock.lock();
+  public async joinEOSParty(eosPartyId: string) {
+    const accountId = this.user.self!.id;
+    const connectionId = this.stomp.connectionId;
+    if (!connectionId) {
+      throw new Error('STOMP connection id is required to join an EOS party');
+    }
 
-    const partyConfig = { ...this.config.partyConfig, ...config };
-
-    let party;
+    const privateConnectionId = this.getPrivateSTOMPConnectionId(connectionId);
+    const publicConnectionId = this.getPublicSTOMPConnectionId(connectionId);
+this.partyLock.lock();
     try {
-      party = await this.http.epicgamesRequest({
+      if (this.party) {
+        await this.http.epicgamesRequest({
+          method: 'DELETE',
+          url: `${Endpoints.BR_PARTY}/parties/${this.party.id}/members/${accountId}`,
+        }, AuthSessionStoreKey.Fortnite).catch(() => undefined);
+        this.party = undefined;
+      }
+
+      const eosUser = await this.http.epicgamesRequest({
+        method: 'GET',
+        url: `${Endpoints.EOS_PARTY_INTERNAL}/users/${accountId}`,
+      }, AuthSessionStoreKey.FortniteEOS);
+
+      if (eosUser?.current?.id && eosUser.current.id !== eosPartyId) {
+        await this.http.epicgamesRequest({
+          method: 'DELETE',
+          url: `${Endpoints.EOS_PARTY_INTERNAL}/parties/${eosUser.current.id}/members/${accountId}`,
+        }, AuthSessionStoreKey.FortniteEOS).catch(() => undefined);
+      }
+
+      await this.http.epicgamesRequest({
         method: 'POST',
-        url: `${Endpoints.BR_PARTY}/parties`,
+        url: `${Endpoints.EOS_PARTY_INTERNAL}/parties/${eosPartyId}/members/${accountId}/join`,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          connection: {
+            meta: {
+              platform: this.config.platform,
+              game: 'fn',
+            },
+            deployment_id: this.config.eosDeploymentId,
+            id: privateConnectionId,
+          },
+        },
+      }, AuthSessionStoreKey.FortniteEOS);
+
+      await this.http.epicgamesRequest({
+        method: 'POST',
+        url: `${Endpoints.EOS_PARTY}/v2/${this.config.eosDeploymentId}/parties/${eosPartyId}/members/${accountId}/connect`,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          connection_id: publicConnectionId,
+          yield_leadership: false,
+        },
+      }, AuthSessionStoreKey.FortniteEOS);
+
+      const buildId = (this.config.partyBuildId || '').split(':').pop() || '';
+      const lobbyId = `${eosPartyId}-${buildId}-default`;
+
+      const lobby = await this.http.epicgamesRequest({
+        method: 'POST',
+        url: `${Endpoints.BR_PARTY}/epic-parties/${eosPartyId}/lobbies/${lobbyId}/members/${accountId}/join`,
         headers: {
           'Content-Type': 'application/json',
         },
         data: {
           config: {
-            join_confirmation: partyConfig.joinConfirmation,
-            joinability: partyConfig.joinability,
-            max_size: partyConfig.maxSize,
+            discoverability: 'ALL',
+            join_confirmation: false,
+            joinability: 'OPEN',
+            max_size: 16,
           },
           join_info: {
             connection: {
               id: this.xmpp.JID,
               meta: {
                 'urn:epic:conn:platform_s': this.config.platform,
-                'urn:epic:conn:type_s': 'game',
               },
-              yield_leadership: false,
             },
             meta: {
+              CrossplayPreference_i: '1',
+              SubGame_u: '1',
               'urn:epic:member:dn_s': this.user.self!.displayName,
             },
           },
-          meta: {
-            'urn:epic:cfg:party-type-id_s': 'default',
-            'urn:epic:cfg:build-id_s': this.config.partyBuildId,
-            'urn:epic:cfg:join-request-action_s': 'Manual',
-            'urn:epic:cfg:chat-enabled_b':
-              partyConfig.chatEnabled?.toString() || 'true',
-            'urn:epic:cfg:can-join_b': 'true',
-          },
         },
       }, AuthSessionStoreKey.Fortnite);
+const joined = new ClientParty(this, lobby);
+      joined.eosPartyId = eosPartyId;
+      this.party = joined;
+    } catch (e: any) {
+this.partyLock.unlock();
+      await this.initParty(true, false);
+      throw e;
+    }
+
+    this.partyLock.unlock();
+  }
+
+  /**
+   * Recreates the bot party after EOS v2 disband or stale local eosPartyId.
+   */
+  public async recreatePartyAfterEOSDisband(source: string, disbandedPartyId?: string) {
+    if (this.config.disablePartyService) return;
+    if (this.partyLock.isLocked || this.eosPartyRecreateInFlight) {
+return;
+    }
+
+    const currentEosPartyId = this.party?.eosPartyId;
+    if (disbandedPartyId && currentEosPartyId && disbandedPartyId !== currentEosPartyId) {
+return;
+    }
+
+    if (Date.now() - this.lastEOSPartyRecreateAt < 3000) return;
+this.eosPartyRecreateInFlight = true;
+    this.lastEOSPartyRecreateAt = Date.now();
+    try {
+      if (this.party) {
+        this.party.eosPartyId = undefined;
+        this.setStatus();
+      }
+      await this.createParty();
+this.emit('party:recreated');
+    } catch (e: any) {
+} finally {
+      this.eosPartyRecreateInFlight = false;
+    }
+  }
+
+  /**
+   * Creates a new party
+   * @param config The party config
+   * @throws {EpicgamesAPIError}
+   */
+  public async createParty(config?: PartyConfig): Promise<void> {
+    if (this.party) await this.party.leave(false);
+    this.partyLock.lock();
+
+    const partyConfig = { ...this.config.partyConfig, ...config };
+    const accountId = this.user.self!.id;
+    const connectionId = this.stomp.connectionId;
+try {
+      let createdViaEOS = false;
+
+      if (connectionId && this.auth.sessions.has(AuthSessionStoreKey.FortniteEOS)) {
+        try {
+          const privateConnectionId = this.getPrivateSTOMPConnectionId(connectionId);
+          const publicConnectionId = this.getPublicSTOMPConnectionId(connectionId);
+await this.sendEOSPresence();
+
+          const eosUser = await this.http.epicgamesRequest({
+            method: 'GET',
+            url: `${Endpoints.EOS_PARTY_INTERNAL}/users/${accountId}`,
+          }, AuthSessionStoreKey.FortniteEOS).catch(() => undefined);
+
+          if (eosUser?.current?.id) {
+            await this.http.epicgamesRequest({
+              method: 'DELETE',
+              url: `${Endpoints.EOS_PARTY_INTERNAL}/parties/${eosUser.current.id}/members/${accountId}`,
+            }, AuthSessionStoreKey.FortniteEOS).catch(() => undefined);
+          }
+
+          const brUser = await this.http.epicgamesRequest({
+            method: 'GET',
+            url: `${Endpoints.BR_PARTY}/user/${accountId}`,
+          }, AuthSessionStoreKey.Fortnite).catch(() => undefined);
+
+          if (brUser?.current?.[0]?.id) {
+            await this.http.epicgamesRequest({
+              method: 'DELETE',
+              url: `${Endpoints.BR_PARTY}/parties/${brUser.current[0].id}/members/${accountId}`,
+            }, AuthSessionStoreKey.Fortnite).catch(() => undefined);
+          }
+
+          const eosParty = await this.http.epicgamesRequest({
+            method: 'POST',
+            url: `${Endpoints.EOS_PARTY_INTERNAL}/parties`,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            data: {
+              join_info: {
+                connection: {
+                  meta: {
+                    platform: this.config.platform,
+                    game: 'fn',
+                  },
+                  deployment_id: this.config.eosDeploymentId,
+                  id: privateConnectionId,
+                },
+              },
+              config: {
+                joinability: 'INVITE_ONLY',
+              },
+            },
+          }, AuthSessionStoreKey.FortniteEOS);
+
+          await this.http.epicgamesRequest({
+            method: 'PATCH',
+            url: `${Endpoints.EOS_PARTY_INTERNAL}/parties/${eosParty.id}`,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            data: {
+              config: {
+                joinability: 'OPEN',
+              },
+              revision: eosParty.revision ?? 0,
+            },
+          }, AuthSessionStoreKey.FortniteEOS);
+
+          await this.http.epicgamesRequest({
+            method: 'POST',
+            url: `${Endpoints.EOS_PARTY}/v2/${this.config.eosDeploymentId}/parties/${eosParty.id}/members/${accountId}/connect`,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            data: {
+              connection_id: publicConnectionId,
+              yield_leadership: false,
+            },
+          }, AuthSessionStoreKey.FortniteEOS);
+
+          const buildId = (this.config.partyBuildId || '').split(':').pop() || '';
+          const lobbyId = `${eosParty.id}-${buildId}-default`;
+
+          const lobby = await this.http.epicgamesRequest({
+            method: 'POST',
+            url: `${Endpoints.BR_PARTY}/epic-parties/${eosParty.id}/lobbies/${lobbyId}/members/${accountId}/join`,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            data: {
+              config: {
+                discoverability: 'ALL',
+                join_confirmation: partyConfig.joinConfirmation ?? false,
+                joinability: 'OPEN',
+                max_size: partyConfig.maxSize ?? 16,
+              },
+              join_info: {
+                connection: {
+                  id: this.xmpp.JID,
+                  meta: {
+                    'urn:epic:conn:platform_s': this.config.platform,
+                  },
+                },
+                meta: {
+                  CrossplayPreference_i: '1',
+                  SubGame_u: '1',
+                  'urn:epic:member:dn_s': this.user.self!.displayName,
+                },
+              },
+            },
+          }, AuthSessionStoreKey.Fortnite);
+
+          this.party = new ClientParty(this, lobby);
+          this.party.eosPartyId = eosParty.id;
+          createdViaEOS = true;
+} catch (eosErr: any) {
+this.debug(`[Party] EOS create failed (${eosErr?.code || eosErr?.message}), falling back to legacy party create`);
+        }
+      }
+
+      if (!createdViaEOS) {
+        const party = await this.http.epicgamesRequest({
+          method: 'POST',
+          url: `${Endpoints.BR_PARTY}/parties`,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            config: {
+              join_confirmation: partyConfig.joinConfirmation,
+              joinability: partyConfig.joinability,
+              max_size: partyConfig.maxSize,
+            },
+            join_info: {
+              connection: {
+                id: this.xmpp.JID,
+                meta: {
+                  'urn:epic:conn:platform_s': this.config.platform,
+                  'urn:epic:conn:type_s': 'game',
+                },
+                yield_leadership: false,
+              },
+              meta: {
+                'urn:epic:member:dn_s': this.user.self!.displayName,
+              },
+            },
+            meta: {
+              'urn:epic:cfg:party-type-id_s': 'default',
+              'urn:epic:cfg:build-id_s': this.config.partyBuildId,
+              'urn:epic:cfg:join-request-action_s': 'Manual',
+              'urn:epic:cfg:chat-enabled_b':
+                partyConfig.chatEnabled?.toString() || 'true',
+              'urn:epic:cfg:can-join_b': 'true',
+            },
+          },
+        }, AuthSessionStoreKey.Fortnite);
+
+        this.party = new ClientParty(this, party);
+      }
     } catch (e) {
       this.partyLock.unlock();
       if (e instanceof EpicgamesAPIError && e.code === 'errors.com.epicgames.social.party.user_has_party') {
         await this.leaveParty(false);
         return this.createParty(config);
       }
-
-      throw e;
+throw e;
     }
 
-    this.party = new ClientParty(this, party);
+    if (!this.party) {
+      this.partyLock.unlock();
+      throw new Error('Failed to create party');
+    }
 
     const newPrivacy = await this.party.setPrivacy(partyConfig.privacy || Enums.PartyPrivacy.PUBLIC, false);
 
@@ -796,8 +1213,28 @@ class Client extends EventEmitter {
         }, {}),
     }, newPrivacy.deleted);
 
+    await this.party.me?.resyncMeta().catch(() => undefined);
+
+    this.setStatus();
     this.partyLock.unlock();
     return undefined;
+  }
+
+  private getPrivateSTOMPConnectionId(connectionId: string) {
+    if (this.stomp.privateConnectionId) return this.stomp.privateConnectionId;
+    if (connectionId.includes('#sub-eas-private-')) return connectionId;
+    if (connectionId.includes('#sub-eas-')) {
+      return connectionId.replace('#sub-eas-', '#sub-eas-private-');
+    }
+    return connectionId;
+  }
+
+  private getPublicSTOMPConnectionId(connectionId: string) {
+    if (this.stomp.publicConnectionId) return this.stomp.publicConnectionId;
+    if (connectionId.includes('#sub-eas-private-')) {
+      return connectionId.replace('#sub-eas-private-', '#sub-eas-');
+    }
+    return connectionId;
   }
 
   /**
@@ -1263,17 +1700,17 @@ class Client extends EventEmitter {
     return creativeDiscovery;
   }
 
-  public generateKeypair() {
-    const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
+  public async generateKeypair() {
+    const { privateKey, publicKeyB64 } = await generateCrossPlatformKeyPair();
     this.privateKey = privateKey;
-    this.publicKeyB64 = publicKey.export({ type: 'spki', format: 'der' }).slice(12).toString('base64');
+    this.publicKeyB64 = publicKeyB64;
   }
 
-  public createSignedMessage(conversationId: string, content: string, type = 'Persistent') {
+  public async createSignedMessage(conversationId: string, content: string, type = 'Persistent') {
     if (!this.privateKey) throw new Error('Private key not generated');
 
     const messageInfo = {
-      mid: crypto.randomUUID(),
+      mid: getUUID(),
       sid: this.user.self!.id,
       rid: conversationId,
       msg: content,
@@ -1286,8 +1723,7 @@ class Client extends EventEmitter {
 
     const body = Buffer.from(JSON.stringify(messageInfo)).toString('base64');
     const message = Buffer.concat([Buffer.from(body), Buffer.from([0])]);
-    const signature = crypto.sign(null, message, this.privateKey);
-    const signatureString = signature.toString('base64');
+    const signatureString = await signCrossPlatformMessage(this.privateKey, message);
 
     return { body, signatureString };
   }

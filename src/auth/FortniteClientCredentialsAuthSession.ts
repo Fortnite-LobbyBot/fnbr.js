@@ -52,6 +52,11 @@ class FortniteClientCredentialsAuthSession extends AuthSession<AuthSessionType.F
   }
 
   public async refresh() {
+    if (this.refreshLock.isLocked) {
+      await this.refreshLock.wait();
+      return;
+    }
+
     this.refreshLock.lock();
 
     try {

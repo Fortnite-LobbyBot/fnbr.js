@@ -37,6 +37,7 @@ class HTTP extends Base {
   public async request<T = any>(config: RequestConfig, retries = 0): Promise<T> {
     const reqStartTime = Date.now();
     const { url, method = 'GET', headers = {}, data, responseType } = config;
+    const debugURL = this.sanitizeDebugURL(url);
 
     let body: any
     const finalHeaders: Record<string, any> = {
@@ -47,7 +48,11 @@ class HTTP extends Base {
 
     if (data) {
       if (headers['Content-Type'] === 'application/x-www-form-urlencoded') {
-        body = data
+        if (typeof data === 'object' && !(data instanceof URLSearchParams)) {
+          body = new URLSearchParams(data).toString();
+        } else {
+          body = data;
+        }
         finalHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
       } else if (headers['Content-Type'] === 'application/json' || (typeof data === 'object' && !(data instanceof ArrayBuffer))) {
         body = JSON.stringify(data);
@@ -62,10 +67,11 @@ class HTTP extends Base {
         method,
         headers: finalHeaders,
         body,
+        referrerPolicy: 'no-referrer',
       });
 
       const reqDuration = ((Date.now() - reqStartTime) / 1000);
-      this.client.debug(`${method.toUpperCase()} ${url} (${reqDuration.toFixed(2)}s): `
+      this.client.debug(`${method.toUpperCase()} ${debugURL} (${reqDuration.toFixed(2)}s): `
         + `${response.status} ${response.statusText}`, 'http');
 
       if (!response.ok) {
@@ -83,7 +89,7 @@ class HTTP extends Base {
         } catch {
         }
 
-        const errorMessage = `HTTP ${response.status}: ${method} ${url}: ${responseBody}`;
+        const errorMessage = `HTTP ${response.status}: ${method} ${debugURL}: ${responseBody}`;
         const error = new Error(errorMessage,);
 
         Object.assign(error, {
@@ -102,7 +108,13 @@ class HTTP extends Base {
       } else if (responseType === 'blob' || contentType.includes("application/octet-stream")) {
         return await response.blob() as T;
       } else if (responseType === 'json' || contentType.includes("application/json")) {
-        return await response.json() as T;
+        const text = await response.text();
+        try {
+          return JSON.parse(text) as T;
+        } catch (err: any) {
+          this.client.debug(`Failed to parse JSON response (Status ${response.status}): ${text.slice(0, 500)}`, 'http');
+          throw err;
+        }
       } else if (responseType === 'formdata' || contentType.includes("multipart/form-data")) {
         return await response.formData() as T;
       } else if (contentType.includes("image/")) {
@@ -118,7 +130,7 @@ class HTTP extends Base {
     } catch (err: any) {
       const reqDuration = ((Date.now() - reqStartTime) / 1000);
 
-      this.client.debug(`${method.toUpperCase()} ${url} (${reqDuration.toFixed(2)}s): ${err.name} - ${err.message}`, 'http');
+      this.client.debug(`${method.toUpperCase()} ${debugURL} (${reqDuration.toFixed(2)}s): ${err.name} - ${err.message}`, 'http');
 
       if (err.response?.status?.toString().startsWith('5') && retries < this.client.config.restRetryLimit) {
         return this.request(config, retries + 1);
@@ -139,6 +151,7 @@ class HTTP extends Base {
 
         if (!Number.isNaN(retryAfter)) {
           const sleepTimeout = retryAfter * 1000 + 500;
+          this.client.debug(`Ratelimited: Retrying ${method} ${debugURL} in ${sleepTimeout / 1000}s`, 'http');
           await new Promise((res) => setTimeout(res, sleepTimeout));
 
           return this.request(config, retries);
@@ -147,6 +160,12 @@ class HTTP extends Base {
 
       throw err;
     }
+  }
+
+  private sanitizeDebugURL(url: string) {
+    return url
+      .replace(/(\/sessions\/kill\/)[^/?#]+/gi, '$1[REDACTED]')
+      .replace(/([?&](?:access_token|authorization|code|refresh_token|token)=)[^&#]*/gi, '$1[REDACTED]');
   }
 
   /**
@@ -160,23 +179,32 @@ class HTTP extends Base {
       const authSession = this.client.auth.sessions.get(auth);
       if (!authSession) throw new AuthenticationMissingError(auth);
 
-      await authSession.refreshLock.wait();
+      if (authSession.refreshLock.isLocked) {
+        this.client.debug(`Waiting for ${auth} refresh lock...`, 'http');
+        await authSession.refreshLock.wait();
+        this.client.debug(`${auth} refresh lock released, proceeding with request.`, 'http');
+      }
     }
 
     try {
+      const currentAuthSession = auth ? this.client.auth.sessions.get(auth) : undefined;
       return await this.request<T>({
         ...config,
         headers: {
           ...config.headers,
-          ...(auth && {
-            Authorization: `bearer ${this.client.auth.sessions.get(auth)!.accessToken}`,
+          ...(currentAuthSession && {
+            Authorization: `Bearer ${currentAuthSession.accessToken}`,
           }),
         },
       });
     } catch (err: any) {
       if (auth && invalidTokenCodes.includes(err.errorData?.errorCode)) {
-        await this.client.auth.sessions.get(auth)!.refresh();
-        return this.epicgamesRequest(config, auth);
+        const sessionToRefresh = this.client.auth.sessions.get(auth);
+        if (sessionToRefresh) {
+          this.client.debug(`Token expired for ${auth}, refreshing...`, 'http');
+          await sessionToRefresh.refresh();
+          return this.epicgamesRequest(config, auth);
+        }
       }
 
       if (typeof err.errorData?.errorCode === 'string') {

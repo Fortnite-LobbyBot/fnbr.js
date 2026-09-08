@@ -21,6 +21,8 @@ import type {
 } from '../../../resources/structs';
 import type PartyMember from './PartyMember';
 import type Friend from '../friend/Friend';
+import crypto from 'crypto';
+import { chunkMeta, lobbyMetaPatch, parseLobbyId } from '../../util/partyMetaPatch';
 
 const deprecationNotOverXmppAnymore = 'Party Chat is not done over XMPP anymore, this function will be removed in a future version';
 
@@ -53,6 +55,15 @@ class ClientParty extends Party {
    */
   public pendingMemberConfirmations: Collection<string, PartyMemberConfirmation>;
 
+  private strictLobbyMeta = false;
+
+  /**
+   * Whether this party is a 42.10 lobby party ({epicPartyId}-{netCL}-default)
+   */
+  public get isLobby(): boolean {
+    return parseLobbyId(this.id) !== null;
+  }
+
   /**
    * @param client The main client
    * @param data The party's data
@@ -73,7 +84,7 @@ class ClientParty extends Party {
   public get playlistId(): string | undefined {
     return (() => {
       const selections = this.members
-        .filter(m => m.id !== this.me.id)
+        .filter(m => m?.id !== this.me?.id)
         .map(m => {
           const info = m?.meta.get('Default:MatchmakingInfo_j')?.MatchmakingInfo;
           if (!info?.islandSelection) return undefined;
@@ -144,13 +155,21 @@ class ClientParty extends Party {
    * @throws {EpicgamesAPIError}
    */
   public async leave(createNew = true) {
-    this.client.partyLock.lock();
+    if (!this.me?.id) throw new PartyMemberNotFoundError('@me');
 
+    this.client.partyLock.lock();
     try {
       await this.client.http.epicgamesRequest({
         method: 'DELETE',
-        url: `${Endpoints.BR_PARTY}/parties/${this.id}/members/${this.me?.id}`,
-      }, AuthSessionStoreKey.Fortnite);
+        url: `${Endpoints.BR_PARTY}/parties/${this.id}/members/${this.me.id}`,
+      }, AuthSessionStoreKey.Fortnite).catch(() => undefined);
+
+      if (this.eosPartyId) {
+        await this.client.http.epicgamesRequest({
+          method: 'DELETE',
+          url: `${Endpoints.EOS_PARTY_INTERNAL}/parties/${this.eosPartyId}/members/${this.me.id}`,
+        }, AuthSessionStoreKey.FortniteEOS).catch(() => undefined);
+      }
     } catch (e) {
       this.client.partyLock.unlock();
 
@@ -174,6 +193,24 @@ class ClientParty extends Party {
     await this.patchQueue.wait();
 
     try {
+      const source = (updated || this.meta.schema) as Record<string, string>;
+      const filtered = this.isLobby ? lobbyMetaPatch(source, this.strictLobbyMeta) : source;
+      const chunks = chunkMeta(filtered);
+
+      for (const [index, chunk] of chunks.entries()) {
+        await this.doPatch(chunk, index === 0 ? deleted : []);
+      }
+    } catch (e) {
+      this.patchQueue.shift();
+      throw e;
+    }
+
+    this.patchQueue.shift();
+    return undefined;
+  }
+
+  private async doPatch(updated: Record<string, string>, deleted: (keyof PartySchema & string)[] = []): Promise<void> {
+    try {
       await this.client.http.epicgamesRequest({
         method: 'PATCH',
         url: `${Endpoints.BR_PARTY}/parties/${this.id}`,
@@ -189,7 +226,7 @@ class ClientParty extends Party {
           },
           meta: {
             delete: deleted,
-            update: updated || this.meta.schema,
+            update: updated,
           },
           party_state_overridden: {},
           party_privacy_type: this.config.joinability,
@@ -203,23 +240,28 @@ class ClientParty extends Party {
     } catch (e) {
       if (e instanceof EpicgamesAPIError && e.code === 'errors.com.epicgames.social.party.stale_revision') {
         this.revision = parseInt(e.messageVars[1]!, 10);
-        this.patchQueue.shift();
-        return this.sendPatch(updated);
+        return this.doPatch(updated, deleted);
       }
-
-      this.patchQueue.shift();
 
       if (e instanceof EpicgamesAPIError && e.code === 'errors.com.epicgames.social.party.party_change_forbidden') {
         throw new PartyPermissionError();
+      }
+
+      if (
+        this.isLobby
+        && !this.strictLobbyMeta
+        && e instanceof EpicgamesAPIError
+        && e.code === 'errors.com.epicgames.validation.validation_failed'
+      ) {
+        this.client.debug(`[party] lobby meta patch rejected (${Object.keys(updated).length} keys); retrying with the client key set`);
+        this.strictLobbyMeta = true;
+        return this.doPatch(updated, deleted);
       }
 
       throw e;
     }
 
     this.revision += 1;
-    this.patchQueue.shift();
-
-    return undefined;
   }
 
   /**
@@ -265,6 +307,26 @@ class ClientParty extends Party {
     if (this.size === this.maxSize) throw new PartyMaxSizeReachedError();
 
     let invite;
+    if (this.eosPartyId && this.client.auth.sessions.has(AuthSessionStoreKey.FortniteEOS)) {
+      try {
+        invite = await this.client.http.epicgamesRequest({
+          method: 'POST',
+          url: `${Endpoints.EOS_PARTY_INTERNAL}/users/${resolvedFriend.id}/invites/${this.client.user.self!.id}?auto=false&platform=0`,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            guid: crypto.randomUUID().replace(/-/g, '').toUpperCase(),
+            SocialMenuContext: 'Profile',
+            epv: '1',
+          },
+        }, AuthSessionStoreKey.FortniteEOS);
+return new SentPartyInvitation(this.client, this, this.client.user.self!, resolvedFriend, invite);
+      } catch (e: any) {
+}
+    } else {
+}
+
     if (this.isPrivate) {
       invite = await this.client.http.epicgamesRequest({
         method: 'POST',
@@ -372,6 +434,12 @@ class ClientParty extends Party {
     this.meta.remove(deleted);
 
     if (sendPatch) await this.sendPatch(updated, deleted);
+
+    if (this.eosPartyId) {
+      const joinability = privacy.partyType === 'Private' ? 'INVITE_ONLY' : 'OPEN';
+      void this.client.eosPartyInvites.setJoinability(this.eosPartyId, joinability);
+    }
+
     this.config.privacy = {
       ...this.config.privacy,
       ...privacy,
@@ -490,8 +558,8 @@ class ClientParty extends Party {
           ...data.MatchmakingInfo?.islandSelection,
           island: {
             ...data.MatchmakingInfo?.islandSelection?.island,
-            LinkId: mnemonic
-          }
+            LinkId: mnemonic,
+          },
         },
         ...options,
       },

@@ -62,15 +62,15 @@ class PresenceParty extends Base {
   constructor(client: Client, data: PresencePartyData) {
     super(client);
 
-    this.isPrivate = typeof data.bIsPrivate === 'boolean' || false;
-    this.id = data.partyId;
+    this.isPrivate = typeof data.bIsPrivate === 'boolean' || typeof data.isPrivate === 'boolean' || false;
+    this.id = data.partyId || data.p;
     this.size = data.pc;
-    this.typeId = data.partyTypeId;
-    this.key = data.key;
-    this.appId = data.appId;
-    this.buildId = data.buildId;
-    this.flags = data.partyFlags;
-    this.notAcceptingMembersReason = data.notAcceptingReason;
+    this.typeId = data.partyTypeId || 286331153;
+    this.key = data.key || data.k;
+    this.appId = data.appId || data.d;
+    this.buildId = data.buildId || data.b;
+    this.flags = data.partyFlags || data.f;
+    this.notAcceptingMembersReason = data.notAcceptingReason || data.nAR;
   }
 
   /**

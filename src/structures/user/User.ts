@@ -128,8 +128,8 @@ class User extends Base {
    * @param data The updated user data
    */
   public update(data: UserData) {
-    this._displayName = data.displayName;
-    this.externalAuths = data.externalAuths || {};
+    if (data.displayName) this._displayName = data.displayName;
+    this.externalAuths = data.externalAuths || this.externalAuths || {};
     if (Array.isArray(this.externalAuths)) this.externalAuths = {};
   }
 

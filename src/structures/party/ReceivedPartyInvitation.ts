@@ -15,6 +15,8 @@ class ReceivedPartyInvitation extends BasePartyInvitation {
   public override sender: Friend;
   public override receiver: ClientUser;
 
+  public eosPartyId?: string;
+
   /**
    * @param client The main client
    * @param party The party this invitation belongs to
@@ -36,6 +38,15 @@ class ReceivedPartyInvitation extends BasePartyInvitation {
    */
   public async accept() {
     if (this.isExpired || this.isHandled) throw new PartyInvitationExpiredError();
+if (this.eosPartyId) {
+      await this.client.joinEOSParty(this.eosPartyId);
+      this.isHandled = true;
+      await this.client.http.epicgamesRequest({
+        method: 'DELETE',
+        url: `${Endpoints.EOS_PARTY_INTERNAL}/users/${this.client.user.self!.id}/invites/${this.sender.id}`,
+      }, AuthSessionStoreKey.FortniteEOS).catch(() => undefined);
+      return;
+    }
 
     await this.party.join();
     this.isHandled = true;
@@ -52,6 +63,15 @@ class ReceivedPartyInvitation extends BasePartyInvitation {
    */
   public async decline() {
     if (this.isExpired || this.isHandled) throw new PartyInvitationExpiredError();
+
+    if (this.eosPartyId) {
+      await this.client.http.epicgamesRequest({
+        method: 'DELETE',
+        url: `${Endpoints.EOS_PARTY_INTERNAL}/users/${this.client.user.self!.id}/invites/${this.sender.id}`,
+      }, AuthSessionStoreKey.FortniteEOS);
+      this.isHandled = true;
+      return;
+    }
 
     await this.client.http.epicgamesRequest({
       method: 'DELETE',

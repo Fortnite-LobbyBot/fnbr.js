@@ -71,6 +71,11 @@ class LauncherAuthSession extends AuthSession<AuthSessionType.Launcher> {
   }
 
   public async refresh() {
+    if (this.refreshLock.isLocked) {
+      await this.refreshLock.wait();
+      return;
+    }
+
     this.refreshLock.lock();
 
     try {

@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 import zlib from 'zlib';
 import { promises as fs } from 'fs';
+import crypto from 'crypto';
 import type {
   Schema,
   StatsPlaylistTypeData,
@@ -247,3 +248,129 @@ export const decodeSTOMPMessageBody = (body?: string): string => {
     return '';
   }
 };
+
+const getSubtleCrypto = () => {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle) {
+    return globalThis.crypto.subtle;
+  }
+  return undefined;
+};
+
+export const isEd25519Supported = async (): Promise<boolean> => {
+  if (typeof crypto !== 'undefined' && typeof crypto.generateKeyPairSync === 'function') {
+    return true;
+  }
+  const subtle = getSubtleCrypto();
+  if (!subtle) return false;
+  try {
+    await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  if (typeof btoa === 'function') {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64');
+  }
+  throw new Error('Base64 encoding not supported in this environment');
+};
+
+export interface CrossPlatformKeyPair {
+  privateKey: any;
+  publicKeyB64: string;
+}
+
+export const generateCrossPlatformKeyPair = async (): Promise<CrossPlatformKeyPair> => {
+  if (crypto && typeof crypto.generateKeyPairSync === 'function') {
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
+    const spkiDer = publicKey.export({ type: 'spki', format: 'der' });
+    const publicKeyB64 = spkiDer.subarray(spkiDer.length - 32).toString('base64');
+    return {
+      privateKey,
+      publicKeyB64,
+    };
+  }
+
+  const subtle = getSubtleCrypto();
+  if (subtle) {
+    const keyPair = (await subtle.generateKey(
+      { name: 'Ed25519' },
+      true,
+      ['sign', 'verify'],
+    )) as any;
+    const rawKeyBuffer = await subtle.exportKey('spki', keyPair.publicKey);
+    const publicKeyB64 = arrayBufferToBase64(rawKeyBuffer);
+    return {
+      privateKey: keyPair.privateKey,
+      publicKeyB64,
+    };
+  }
+
+  throw new Error('No cryptographic key generation API is available in this environment.');
+};
+
+export const signCrossPlatformMessage = async (
+  privateKey: any,
+  data: Uint8Array | Buffer,
+): Promise<string> => {
+  if (typeof CryptoKey !== 'undefined' && privateKey instanceof CryptoKey) {
+    const subtle = getSubtleCrypto();
+    if (!subtle) {
+      throw new Error('Web Crypto subtle API not found');
+    }
+    
+    const signBuffer = new Uint8Array(data);
+
+    const signatureBuffer = await subtle.sign(
+      { name: 'Ed25519' },
+      privateKey,
+      signBuffer,
+    );
+    return arrayBufferToBase64(signatureBuffer);
+  }
+
+  if (crypto && typeof crypto.sign === 'function') {
+    const signature = crypto.sign(null, data, privateKey);
+    return signature.toString('base64');
+  }
+
+  if (privateKey && typeof privateKey === 'object' && privateKey.type === 'private' && privateKey.algorithm) {
+    const subtle = getSubtleCrypto();
+    if (subtle) {
+      const signatureBuffer = await subtle.sign(
+        { name: 'Ed25519' },
+        privateKey,
+        data,
+      );
+      return arrayBufferToBase64(signatureBuffer);
+    }
+  }
+
+  throw new Error('No cryptographic signing API is available or private key type is unsupported.');
+};
+
+export const getUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+

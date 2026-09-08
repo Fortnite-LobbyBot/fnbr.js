@@ -1,23 +1,13 @@
-import { generateKeyPair, randomUUID, sign } from 'crypto';
-import { promisify } from 'util';
 import Endpoints from '../../resources/Endpoints';
 import { AuthSessionStoreKey, ConversationType, SignedMessageType } from '../../resources/enums';
 import Base from '../Base';
+import { generateCrossPlatformKeyPair, signCrossPlatformMessage, getUUID, isEd25519Supported } from '../util/Util';
+import { parseLobbyId } from '../util/partyMetaPatch';
 import type { PublicKeyData } from '../../resources/httpResponses';
-import type { KeyObject } from 'crypto';
 import type { ChatMessagePayload } from '../../resources/structs';
-import type EOSAuthSession from '../auth/EOSAuthSession';
-
-function customUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
 
 // private scope
-const generateCustomCorrelationId = () => `EOS-${Date.now()}-${customUUID()}`;
+const generateCustomCorrelationId = () => `EOS-${Date.now()}-${getUUID()}`;
 
 /**
  * Represent's the client's chat manager (dm, party chat) via eos.
@@ -31,7 +21,7 @@ class ChatManager extends Base {
   /**
    * The private key for signing messages
    */
-  private privateKey?: KeyObject;
+  private privateKey?: any;
 
   /**
    * The public key for verifying messages
@@ -64,32 +54,16 @@ class ChatManager extends Base {
     return this.client.config.eosDeploymentId;
   }
 
-  public async getConversationId(userId: string) {
-    const data = await this.client.http.epicgamesRequest({
-      method: 'POST',
-      url: `${Endpoints.EOS_CHAT}/v1/public/_/conversations?createIfExists=false`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        title: '',
-        type: 'dm',
-        members: [this.client.user.self!.id, userId],
-      },
-    }, AuthSessionStoreKey.FortniteEOS);
-
-    return data.conversationId;
-  }
-
   /**
    * Sends a private message to the specified user
    * @param user the account id or displayname
    * @param message the message object
    * @returns the message id
+   * @throws {UserNotFoundError} When the specified user was not found
+   * @throws {EpicgamesAPIError} When the api request failed
    */
   public async whisperUser(user: string, message: ChatMessagePayload) {
     const accountId = await this.client.user.resolveId(user);
-    if (!accountId) throw new UserNotFoundError(user);
 
     const conversationId = await this.getDMConversationId(accountId);
 
@@ -115,21 +89,27 @@ class ChatManager extends Base {
     allowedRecipients: string[],
     conversationType: ConversationType,
   ) {
+    const isParty = conversationType === ConversationType.Party;
+    const partyId = isParty ? conversationId.replace(/^p-/, '') : conversationId;
+    const lobby = isParty ? parseLobbyId(partyId) : null;
+    const scope = isParty && !lobby ? this.namespace : '_';
+    const addressed = lobby ? `ep-${lobby.epicPartyId}` : isParty ? `p-${partyId}` : conversationId;
+    const signedType: SignedMessageType = isParty && !lobby ? SignedMessageType.Party : SignedMessageType.Persistent;
     const correlationId = generateCustomCorrelationId();
 
     const { body, signature } = await this.createSignedMessage(
-      conversationId,
+      lobby ? addressed : (isParty ? partyId : conversationId),
       message.body,
-      conversationType === ConversationType.DirectMessage ? SignedMessageType.Persistent : SignedMessageType.Party,
+      signedType,
     );
 
     await this.client.http.epicgamesRequest({
       method: 'POST',
-      url: `${Endpoints.EOS_CHAT}/v1/public/${conversationType === ConversationType.DirectMessage ? '_' : this.namespace}`
-        + `/conversations/${conversationId}/messages?fromAccountId=${this.client.user.self!.id}`,
+      url: `${Endpoints.EOS_CHAT}/v1/public/${scope}`
+        + `/conversations/${addressed}/messages?fromAccountId=${this.client.user.self!.id}`,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `bearer ${eosSession.easAccessToken}`,
+        'X-Epic-Correlation-ID': correlationId,
       },
       data: {
         allowedRecipients,
@@ -141,7 +121,7 @@ class ChatManager extends Base {
           TmV: '2',
           Pub: this.publicKeyData!.jwt,
           Sig: signature,
-          NPM: conversationType === ConversationType.Party ? '1' : undefined,
+          NPM: isParty && !lobby ? '1' : undefined,
           PlfNm: this.client.config.platform,
           PlfId: this.client.user.self!.id,
         },
@@ -172,6 +152,10 @@ class ChatManager extends Base {
    * Ensures that message signing is possible
    */
   public async ensureMessageSigning() {
+    if (!(await isEd25519Supported())) {
+      throw new Error('Chat/message signing is not supported on this device (Ed25519 cryptography not available).');
+    }
+
     if (!this.keypairExists) {
       await this.generateKeypair();
     }
@@ -209,7 +193,7 @@ class ChatManager extends Base {
     const timestamp = Date.now();
 
     const messageInfo = {
-      mid: randomUUID(),
+      mid: getUUID(),
       sid: this.client.user.self!.id,
       rid: conversationId,
       msg: content,
@@ -223,7 +207,7 @@ class ChatManager extends Base {
     const body = Buffer.from(JSON.stringify(messageInfo), 'utf-8').toString('base64');
     const messageToSign = Buffer.concat([Buffer.from(body, 'utf-8'), Buffer.from([0])]);
 
-    const signature = sign(null, messageToSign, this.privateKey!).toString('base64');
+    const signature = await signCrossPlatformMessage(this.privateKey!, messageToSign);
 
     return { body, signature };
   }
@@ -232,13 +216,10 @@ class ChatManager extends Base {
    * Generates a ed25519 keypair for message signing
    */
   private async generateKeypair() {
-    const { privateKey, publicKey } = await promisify(generateKeyPair)('ed25519');
-
-    const spkiDer = publicKey.export({ type: 'spki', format: 'der' });
-    const rawPublicKey = spkiDer.subarray(spkiDer.length - 32);
+    const { privateKey, publicKeyB64 } = await generateCrossPlatformKeyPair();
 
     this.privateKey = privateKey;
-    this.publicKey = rawPublicKey.toString('base64');
+    this.publicKey = publicKeyB64;
   }
 
   /**
@@ -247,7 +228,7 @@ class ChatManager extends Base {
   private async registerKeypair() {
     const publicKeyData = await this.client.http.epicgamesRequest<PublicKeyData>({
       method: 'POST',
-      url: `${Endpoints.PUBLICKEY}/v2/publickey`,
+      url: `${Endpoints.PUBLICKEY}/v2/publickey/`,
       headers: {
         'Content-Type': 'application/json',
       },

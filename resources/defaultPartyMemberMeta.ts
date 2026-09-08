@@ -1,6 +1,6 @@
-import crypto from 'crypto';
+import { getUUID } from '../src/util/Util';
 
-const matchmakingId = crypto.randomUUID().replaceAll('-', '').toUpperCase();
+const matchmakingId = getUUID().replaceAll('-', '').toUpperCase();
 
 export default {
   'Default:FrontEndMapMarker_j': JSON.stringify({
@@ -50,6 +50,13 @@ export default {
       passLevel: 0,
     },
   }),
+  'Default:AthenaBannerInfo_j': JSON.stringify({
+    AthenaBannerInfo: {
+      bannerIconId: 'StandardBanner20',
+      bannerColorId: 'DefaultColor2',
+      seasonLevel: 0,
+    },
+  }),
   'Default:PackedState_j': JSON.stringify({
     PackedState: {
       bAllowEmoteBeatSyncing: true,
@@ -59,14 +66,14 @@ export default {
       bRecText: false,
       bRecVoice: false,
       bUploadLogs: false,
-      eOSProductUserId: crypto.randomUUID().replaceAll('-', ''),
+      eOSProductUserId: '',
+      ePV: '1.0',
       gameMode: 'None',
-      hasCompletedSTWTutorial: false,
-      hasPurchasedSTW: false,
+      hasCompletedSTWTutorial: true,
       location: 'PreLobby',
       platformSupportsSTW: true,
       subGame: 'Athena',
-      voiceChatStatus: 'PartyVoice',
+      voiceChatStatus: 'Enabled',
     },
   }),
   'Default:FeatDefinition_s': 'None',
@@ -257,6 +264,11 @@ export default {
         time: 0,
       },
       responses: [],
+    },
+  }),
+  'Default:Extensions_j': JSON.stringify({
+    Extensions: {
+      channels: {},
     },
   }),
 };

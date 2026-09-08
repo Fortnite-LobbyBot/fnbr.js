@@ -2,6 +2,7 @@ export enum AuthSessionType {
   Fortnite = 'fortnite',
   FortniteClientCredentials = 'fortniteClientCredentials',
   EOS = 'eos',
+  EOSDeployment = 'eosDeployment',
   Launcher = 'launcher',
 }
 
@@ -9,6 +10,7 @@ export enum AuthSessionStoreKey {
   Fortnite = 'fortnite',
   FortniteClientCredentials = 'fortniteClientCredentials',
   FortniteEOS = 'fortniteEOS',
+  FortniteEOSDeployment = 'fortniteEOSDeployment',
   Launcher = 'launcher',
 }
 

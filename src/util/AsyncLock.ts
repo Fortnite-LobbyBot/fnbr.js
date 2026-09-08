@@ -34,6 +34,7 @@ class AsyncLock {
    * Activates this lock
    */
   public lock() {
+    if (this.isLocked) return;
     let resolve: any;
     const promise = new Promise<void>((res) => {
       resolve = res;

@@ -12,6 +12,7 @@ import AuthClients from '../../resources/AuthClients';
 import { resolveAuthObject, resolveAuthString } from '../util/Util';
 import FortniteClientCredentialsAuthSession from './FortniteClientCredentialsAuthSession';
 import EOSAuthSession from './EOSAuthSession';
+import EOSDeploymentAuthSession from './EOSDeploymentAuthSession';
 import type {
   AuthClient, AuthStringResolveable, DeviceAuthResolveable,
   DeviceAuthWithSnakeCaseSupport, AuthSessionStore,
@@ -22,7 +23,8 @@ type AuthSessionStoreType = AuthSessionStore<AuthSessionStoreKey,
   FortniteAuthSession
   | LauncherAuthSession
   | FortniteClientCredentialsAuthSession
-  | EOSAuthSession>;
+  | EOSAuthSession
+  | EOSDeploymentAuthSession>;
 
 /**
  * Represents the client's authentication manager
@@ -122,8 +124,12 @@ class Auth extends Base {
     this.sessions.set(AuthSessionStoreKey.FortniteClientCredentials, fortniteClientCredsSession);
 
     // Only create an EOS token if we connect to STOMP
-    if (this.client.config.connectToSTOMP) {
+    if (this.client.config.connectToEOSDeployment || this.client.config.connectToSTOMP) {
       await this.fortniteEOSAuthenticate();
+    }
+
+    if (this.client.config.connectToEOSDeployment) {
+      await this.fortniteEOSDeploymentAuthenticate();
     }
 
     this.client.debug(`[AUTH] Authentification successful (${((Date.now() - authStartTime) / 1000).toFixed(2)}s)`);
@@ -312,6 +318,31 @@ class Auth extends Base {
     await eosSession.grantEasRefreshToken(eosSession.refreshToken);
 
     this.sessions.set(AuthSessionStoreKey.FortniteEOS, eosSession);
+  }
+
+  public async fortniteEOSDeploymentAuthenticate() {
+    let eosSession = this.sessions.get(AuthSessionStoreKey.FortniteEOS);
+    if (!eosSession) throw new Error('Cannot authenticate EOS deployment without a Fortnite EOS session');
+
+    if (eosSession.expiresAt.getTime() <= Date.now()) {
+      this.client.debug('[AUTH] Fortnite EOS session expired, refreshing before deployment auth...');
+      await eosSession.refresh();
+      eosSession = this.sessions.get(AuthSessionStoreKey.FortniteEOS)!;
+    }
+
+    const authClient = this.client.config.auth.authClient!;
+
+    const eosDeploymentSession = await EOSDeploymentAuthSession.create(
+      this.client,
+      AuthClients[authClient].clientId,
+      AuthClients[authClient].secret,
+      eosSession.accessToken,
+      this.client.config.eosDeploymentId,
+    );
+
+    this.sessions.set(AuthSessionStoreKey.FortniteEOSDeployment, eosDeploymentSession);
+
+    return eosDeploymentSession;
   }
 }
 

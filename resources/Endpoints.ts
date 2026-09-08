@@ -28,6 +28,8 @@ export default Object.freeze({
   EOS_TOKEN: 'https://api.epicgames.dev/epic/oauth/v2/token',
   EOS_TOKEN_INFO: 'https://api.epicgames.dev/epic/oauth/v2/tokenInfo',
   EOS_TOKEN_REVOKE: 'https://api.epicgames.dev/epic/oauth/v2/revoke',
+  EOS_DEPLOYMENT_TOKEN: 'https://api.epicgames.dev/auth/v1/oauth/token',
+  EOS_USERS: 'https://api.epicgames.dev/auth/v1/users',
   EOS_CHAT: 'https://api.epicgames.dev/epic/chat',
   CHAT_EAS_TOKEN: 'https://api.epicgames.dev/epic/oauth/v1/token',
   CHAT_CONVERSATIONS: 'https://api.epicgames.dev/epic/chat/v1/public/_/conversations',
@@ -44,6 +46,8 @@ export default Object.freeze({
   BR_SAC_SEARCH: 'https://payment-website-pci.ol.epicgames.com/affiliate/search-by-slug',
   BR_SAC: 'https://affiliate-public-service-prod.ol.epicgames.com/affiliate/api/public/affiliates/slug',
   BR_PARTY: 'https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite',
+  EOS_PARTY: 'https://api.epicgames.dev/epic/party',
+  EOS_PARTY_INTERNAL: 'https://api.epicgames.dev/epic/party/internal/v2',
   BR_TOURNAMENTS: 'https://events-public-service-live.ol.epicgames.com/api/v1/events/Fortnite/data',
   BR_TOURNAMENTS_DOWNLOAD: 'https://events-public-service-live.ol.epicgames.com/api/v1/events/Fortnite/download',
   BR_TOURNAMENT_WINDOW: 'https://events-public-service-live.ol.epicgames.com/api/v1/leaderboards/Fortnite',
@@ -72,7 +76,7 @@ export default Object.freeze({
 
   // FRIENDS
   FRIENDS: 'https://friends-public-service-prod.ol.epicgames.com/friends/api/v1',
-  FRIEND_ADD: 'https://friends-public-service-prod.ol.epicgames.com/friends/api/public/friends',
+  FRIEND_ADD: 'https://friends-public-service-prod.ol.epicgames.com/friends/api/v1',
   FRIEND_DELETE: 'https://friends-public-service-prod.ol.epicgames.com/friends/api/v1',
   FRIEND_BLOCK: 'https://friends-public-service-prod.ol.epicgames.com/friends/api/public/blocklist',
 

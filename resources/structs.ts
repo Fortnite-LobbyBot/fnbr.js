@@ -25,6 +25,7 @@ import type FortniteAuthSession from '../src/auth/FortniteAuthSession';
 import type LauncherAuthSession from '../src/auth/LauncherAuthSession';
 import type FortniteClientCredentialsAuthSession from '../src/auth/FortniteClientCredentialsAuthSession';
 import type EOSAuthSession from '../src/auth/EOSAuthSession';
+import type EOSDeploymentAuthSession from '../src/auth/EOSDeploymentAuthSession';
 
 export type PartyMemberSchema = Partial<typeof defaultPartyMemberMeta>;
 export type PartySchema = Partial<typeof defaultPartyMeta> & {
@@ -333,6 +334,9 @@ export interface ClientConfig {
    */
   connectToSTOMP: boolean;
 
+  connectToEOSDeployment: boolean;
+
+
   /**
    * Whether the client should fetch all friends on startup.
    * NOTE: If you disable this, almost all features related to friend caching will no longer work.
@@ -353,9 +357,9 @@ export interface ClientConfig {
 
   restTransformURL?: (url: string) => string
 
-
   restFetchAdapter?: (url: string, init: RequestInit) => Promise<Response>
 
+  wsTransformURL?: (url: string, headers: RequestInit['headers']) => string
 
   /**
    * Whether the client should handle rate limits (429 status code responses)
@@ -395,6 +399,16 @@ export interface ClientConfig {
    * Fortnite deployment id (eos)
    */
   eosDeploymentId: string;
+
+  /**
+   * EOS SDK version string (e.g. 1.19.4210.0-57262110@Fortnite)
+   */
+  eosVersion: string;
+
+  /**
+   * Fortnite game build string (e.g. ++Fortnite+Release-42.10-CL-57566230)
+   */
+  gameBuild: string;
 
   /**
    * Amount of time (in ms) to wait for the XMPP connection to be established
@@ -590,6 +604,11 @@ export interface ClientEvents {
    * @param party The party which got updated
    */
   'party:updated': (party: ClientParty) => void;
+
+  /**
+   * Emitted when the bot recreated its EOS party after disband/stale state
+   */
+  'party:recreated': () => void;
 
   /**
    * Emitted when a party member requires confirmation
@@ -1022,7 +1041,12 @@ export interface Cosmetics {
   backpack?: { id: string; variants?: CosmeticVariant[]; path?: string } | null;
   pickaxe?: { id: string; variants?: CosmeticVariant[]; path?: string };
   shoes?: { id: string; variants?: CosmeticVariant[]; path?: string } | null;
-  sidekick?: { id: string; variants?: CosmeticVariant[]; path?: string } | null;
+  sidekick?: {
+    id: string;
+    variants?: CosmeticVariant[];
+    path?: string;
+    variantChannels?: { t: string; n?: string; o?: { t: string; n?: string }[] }[];
+  } | null;
 }
 
 export interface CosmeticVariant {
@@ -1067,17 +1091,24 @@ export type SentMessageType = 'PARTY' | 'FRIEND';
 
 export interface PresencePartyData {
   bIsPrivate?: boolean;
+  isPrivate?: boolean;
   sourceId?: string;
   sourceDisplayName?: string;
   sourcePlatform?: string;
   partyId?: string;
   partyTypeId?: number;
-  key?: 'k';
+  key?: string;
   appId?: string;
   buildId?: string;
   partyFlags?: number;
   notAcceptingReason?: number;
   pc?: number;
+  p?: string;
+  k?: string;
+  d?: string;
+  b?: string;
+  f?: number;
+  nAR?: number;
 }
 
 export type UserSearchPlatform = 'epic' | 'psn' | 'xbl' | 'steam';
@@ -1278,6 +1309,23 @@ export interface EOSAuthData extends AuthData {
   scope: string;
 }
 
+export interface EOSDeploymentAuthData {
+  access_token: string;
+  token_type: string;
+  expires_at: string;
+  nonce: string;
+  features: string[];
+  organization_id: string;
+  product_id: string;
+  sandbox_id: string;
+  deployment_id: string;
+  organization_user_id: string;
+  product_user_id: string;
+  product_user_id_created: boolean;
+  id_token: string;
+  expires_in: number;
+}
+
 export interface EOSTokenInfo {
   active: boolean;
 }
@@ -1286,6 +1334,7 @@ export interface AuthSessionStore<K, V> extends Collection<K, V> {
   get(key: AuthSessionStoreKey.Fortnite): FortniteAuthSession | undefined;
   get(key: AuthSessionStoreKey.Launcher): LauncherAuthSession | undefined;
   get(key: AuthSessionStoreKey.FortniteEOS): EOSAuthSession | undefined;
+  get(key: AuthSessionStoreKey.FortniteEOSDeployment): EOSDeploymentAuthSession | undefined;
   get(key: AuthSessionStoreKey.FortniteClientCredentials): FortniteClientCredentialsAuthSession | undefined;
   get(key: K): V | undefined;
 }
@@ -1340,7 +1389,7 @@ export interface EOSConnectChatNewMsgMessage extends BaseEOSConnectMessage {
     namespace: string;
     conversation: {
       conversationId: string;
-      type: string; // i.e. 'party'
+      type: string; // i.e. 'party' | 'dm'
     };
     message: {
       body: string;
@@ -1375,6 +1424,33 @@ export interface EOSConnectChatNewWhisperMessage extends BaseEOSConnectMessage {
   type: 'social.chat.v1.NEW_WHISPER';
 }
 
+export interface EOSConnectPresenceUpdateMessage extends BaseEOSConnectMessage {
+  payload: {
+    accountId: string;
+    status: string;
+    activity?: { value?: string };
+    perNs?: {
+      productId?: string;
+      status?: string;
+      activity?: { value?: string };
+      props?: Record<string, string>;
+    }[];
+    props?: Record<string, string>;
+  };
+  type: 'presence.v1.UPDATE';
+}
+
+export interface EOSConnectPartyDisbandedMessage extends BaseEOSConnectMessage {
+  payload: {
+    party_id: string;
+    account_id: string;
+    sent?: string;
+    suspended?: boolean;
+    revision?: number;
+  };
+  type: 'party.v2.MEMBER_EXPIRED_PARTY_DISBANDED';
+}
+
 export type EOSConnectMessage =
   // Core
   EOSConnectCoreConnected
@@ -1383,4 +1459,6 @@ export type EOSConnectMessage =
   | EOSConnectChatConversionCreatedMessage
   | EOSConnectChatNewMsgMessage
   | EOSConnectChatMemberLeftMessage
-  | EOSConnectChatNewWhisperMessage;
+  | EOSConnectChatNewWhisperMessage
+  | EOSConnectPresenceUpdateMessage
+  | EOSConnectPartyDisbandedMessage;
